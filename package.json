@@ -1,0 +1,28 @@
+{
+  "name": "@monyone/aho-corasick",
+  "version": "0.0.1",
+  "description": "Aho Corasick",
+  "main": "dist/index.js",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "pref": "ts-node --files ./perf/index.ts"
+  },
+  "devDependencies": {
+    "@tanishiking/aho-corasick": "^0.0.1",
+    "@types/ahocorasick": "^1.0.0",
+    "@types/chance": "^1.1.6",
+    "@types/jest": "~29",
+    "ahocorasick": "^1.0.2",
+    "chance": "^1.1.11",
+    "hoshino": "^2.1.0",
+    "jest": "~29",
+    "modern-ahocorasick": "^1.0.1",
+    "ts-jest": "~29",
+    "ts-node": "^10.9.2",
+    "tynisearch": "^1.0.11",
+    "typescript": "~5.4",
+    "word-match-helper": "^2.1.0"
+  }
+}
