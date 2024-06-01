@@ -1,32 +1,56 @@
 import { AhoCorasick } from '../../src'
 
 test("Check prefix contain in hasKeywordInText", () => {
-  const aho = new AhoCorasick(['abc', 'bde']);
-  expect(aho.hasKeywordInText('abce')).toBe(true);
+  const input = ['abc', 'bde'];
+  const target = 'abce';
+
+  const aho = new AhoCorasick(input);
+
+  expect(aho.hasKeywordInText(target)).toBe(true);
 });
 
 test("Check suffix contain in hasKeywordInText", () => {
-  const aho = new AhoCorasick(['aac', 'bde']);
-  expect(aho.hasKeywordInText('abde')).toBe(true);
+  const input = ['aac', 'bde'];
+  const target = 'abde';
+
+  const aho = new AhoCorasick(input);
+
+  expect(aho.hasKeywordInText(target)).toBe(true);
 });
 
 test("Check center contain in hasKeywordInText", () => {
-  const aho = new AhoCorasick(['aac', 'bde']);
-  expect(aho.hasKeywordInText('abdec')).toBe(true);
+  const input = ['abc', 'bde'];
+  const target = 'abdec';
+
+  const aho = new AhoCorasick(input);
+
+  expect(aho.hasKeywordInText(target)).toBe(true);
 });
 
 test("Check multiple contain in hasKeywordInText", () => {
-  const aho = new AhoCorasick(['aaa', 'bbb']);
-  expect(aho.hasKeywordInText('aabbbbbaaaaaa')).toBe(true);
+  const input = ['aaa', 'bbb'];
+  const target = 'aabbbbbaaaaaa';
+
+  const aho = new AhoCorasick(input);
+
+  expect(aho.hasKeywordInText(target)).toBe(true);
 });
 
 test("Check redundance contain in hasKeywordInText", () => {
-  const aho = new AhoCorasick(['aaa', 'aa', 'a']);
-  expect(aho.hasKeywordInText('aabbbbbaa')).toBe(true);
+  const input = ['aaa', 'aa', 'b'];
+  const target = 'aabbbbbaa';
+
+  const aho = new AhoCorasick(input);
+
+  expect(aho.hasKeywordInText(target)).toBe(true);
 });
 
 test('Check failure link in hasKeywordInText', () => {
-  const aho = new AhoCorasick(['abc', 'bde']);
+  const input = ['abc', 'bde'];
+  const target = 'abde';
+
+  const aho = new AhoCorasick(input);
+
   // abde is ab -(failure Link)-> bc ->
-  expect(aho.hasKeywordInText('abde')).toBe(true);
+  expect(aho.hasKeywordInText(target)).toBe(true);
 });
