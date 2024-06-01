@@ -1,9 +1,23 @@
 {
   "name": "@monyone/aho-corasick",
   "version": "1.0.1",
-  "description": "Aho Corasick",
+  "author": "monyone <monyone.teihen@gmail.com>",
+  "description": "Aho Corasick implementation written in TypeScript",
+  "keywords": [
+    "aho-corasick"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monyone/aribb24.js"
+  },
   "main": "dist/index.js",
   "license": "MIT",
+  "files": [
+    "dist/**/*",
+    "d.ts/**/*",
+    "src/**/*",
+    "tsconfig.json"
+  ],
   "scripts": {
     "build": "tsc",
     "perf": "ts-node --files ./perf/index.ts"
