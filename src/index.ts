@@ -7,14 +7,17 @@ class Trie {
     this.parent = parent ?? null;
   }
 
-  public has(s: string) {
+  public can(s: string) {
     return this.goto.has(s);
   }
-  public get(s: string) {
+  public go(s: string) {
     return this.goto.get(s);
   }
-  public set(s: string, next: Trie) {
+  public define(s: string, next: Trie) {
     return this.goto.set(s, next);
+  }
+  public undef(s: string) {
+    this.goto.delete(s);
   }
   public entries() {
     return this.goto.entries();
@@ -22,6 +25,9 @@ class Trie {
 
   public empty() {
     return this.keywords.size === 0;
+  }
+  public contains(k: string) {
+    return this.keywords.has(k);
   }
   public add(k: string) {
     this.keywords.add(k);
@@ -34,6 +40,10 @@ class Trie {
       this.keywords.add(keyword);
     }
   }
+
+  public defunct() {
+    return this.goto.size === 0 && this.keywords.size === 0;
+  }
 }
 
 export class AhoCorasick {
@@ -45,8 +55,8 @@ export class AhoCorasick {
     for (const keyword of keywords) {
       let current: Trie = this.root;
       for (const ch of keyword) {
-        let next = current.get(ch) ?? (new Trie(current))
-        current.set(ch, next);
+        let next = current.go(ch) ?? (new Trie(current))
+        current.define(ch, next);
         current = next;
       }
       current.add(keyword);
@@ -63,10 +73,10 @@ export class AhoCorasick {
 
       // calc failure
       let failure = this.failure_link.get(parent) ?? null;
-      while (failure != null && !failure.has(ch)) {
+      while (failure != null && !failure.can(ch)) {
         failure = this.failure_link.get(failure) ?? null;
       }
-      failure = failure?.get(ch) ?? this.root;
+      failure = failure?.go(ch) ?? this.root;
       this.failure_link.set(current, failure);
       current.merge(failure);
 
@@ -76,22 +86,22 @@ export class AhoCorasick {
     }
   }
 
-  hasKeywordInText(text: string): boolean {
+  public hasKeywordInText(text: string): boolean {
     let state: Trie = this.root;
     for (const ch of text) {
       if (!state.empty()) { return true; }
 
-      while (!state.has(ch) && state !== this.root) {
+      while (!state.can(ch) && state !== this.root) {
         state = this.failure_link.get(state)!;
-        if (state.has(ch)) { break; }
+        if (state.can(ch)) { break; }
       }
-      state = state.get(ch) ?? this.root;
+      state = state.go(ch) ?? this.root;
     }
 
     return !state.empty();
   }
 
-  matchInText(text: string): { begin: number, end: number, keyword: string }[] {
+  public matchInText(text: string): { begin: number, end: number, keyword: string }[] {
     const result: { begin: number, end: number, keyword: string }[] = [];
     const chs = Array.from(text);
 
@@ -105,11 +115,11 @@ export class AhoCorasick {
 
       const ch = chs[i];
 
-      while (!state.has(ch) && state !== this.root) {
+      while (!state.can(ch) && state !== this.root) {
         state = this.failure_link.get(state)!;
-        if (state.has(ch)) { break; }
+        if (state.can(ch)) { break; }
       }
-      state = state.get(ch) ?? this.root;
+      state = state.go(ch) ?? this.root;
     }
 
     for (const keyword of state.keywords) {
@@ -149,23 +159,23 @@ export class DynamicAhoCorasick extends AhoCorasick {
     }
   }
 
-  append(keyword: string) {
+  public append(keyword: string): void {
     let parent = this.root;
     const chs = Array.from(keyword);
 
     // failure
     for (let i = 0; i < chs.length; i++) {
       const ch = chs[i];
-      const current = parent.get(ch) ?? (new Trie(parent));
-      parent.set(ch, current);
+      const current = parent.go(ch) ?? (new Trie(parent));
+      parent.define(ch, current);
       if (i === chs.length - 1) { current.add(keyword); }
 
       // build failure link
       let failure = this.failure_link.get(parent) ?? null;
-      while (failure != null && !failure.has(ch)) {
+      while (failure != null && !failure.can(ch)) {
         failure = this.failure_link.get(failure) ?? null;
       }
-      failure = failure?.get(ch) ?? this.root;
+      failure = failure?.go(ch) ?? this.root;
       this.failure_link.set(current, failure);
       if (!this.invert_failure_link.has(failure)) {
         this.invert_failure_link.set(failure, new Set<Trie>());
@@ -179,13 +189,13 @@ export class DynamicAhoCorasick extends AhoCorasick {
       }
       for (const invert_failure of Array.from(this.invert_failure_link.get(failure)!)) {
         if (invert_failure.parent == null) { continue; }
-        if (invert_failure.parent.get(ch) !== invert_failure) { continue; } // root node is fallback, so specify ege
+        if (invert_failure.parent.go(ch) !== invert_failure) { continue; } // root node is fallback, so specify ege
         { // recalc failure in invert_failure
           let failure = this.failure_link.get(invert_failure.parent) ?? null;
-          while (failure != null && !failure.has(ch)) {
+          while (failure != null && !failure.can(ch)) {
             failure = this.failure_link.get(failure) ?? null;
           }
-          if (failure?.get(ch) !== current) { continue; }
+          if (failure?.go(ch) !== current) { continue; }
         }
 
         this.failure_link.set(invert_failure, current);
@@ -205,6 +215,41 @@ export class DynamicAhoCorasick extends AhoCorasick {
         invert_failure.merge(current);
         queue.push(invert_failure);
       }
+    }
+  }
+
+  delete(keyword: string) {
+    let target = this.root;
+    const chs = Array.from(keyword);
+    for (const ch of chs) {
+      if (!target.can(ch)) { return; }
+      target = target.go(ch)!;
+    }
+    if (!target.contains(keyword)) { return; }
+
+    target.delete(keyword);
+    const queue: Trie[] = [target];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      for (const invert_failure of (this.invert_failure_link.get(current)?.values() ?? [])) {
+        invert_failure.delete(keyword);
+        queue.push(invert_failure);
+      }
+    }
+
+    // remove defunct nodes
+    for (let leaf: Trie | null = target, index: number = chs.length - 1; leaf != null && leaf.defunct(); leaf = leaf.parent ?? null, index--) {
+      leaf.parent?.undef(chs[index]);
+
+      const failure = this.failure_link.get(leaf)!;
+      this.invert_failure_link.get(failure)!.delete(leaf);
+      for (const invert_failure of (this.invert_failure_link.get(leaf) ?? [])) {
+        this.failure_link.set(invert_failure, failure);
+        this.invert_failure_link.get(failure)!.add(invert_failure);
+      }
+
+      this.failure_link.delete(leaf);
+      this.invert_failure_link.delete(leaf);
     }
   }
 }
