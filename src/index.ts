@@ -1,7 +1,11 @@
 class Trie {
+  public readonly parent: Trie | null = null;
   private goto: Map<string, Trie> = new Map<string, Trie>();
-  public keywords: string[] = []
-  public failure: Trie | null = null;
+  public readonly keywords: Set<string> = new Set<string>();
+
+  public constructor(parent?: Trie) {
+    this.parent = parent ?? null;
+  }
 
   public has(s: string) {
     return this.goto.has(s);
@@ -17,25 +21,31 @@ class Trie {
   }
 
   public empty() {
-    return this.keywords.length === 0;
+    return this.keywords.size === 0;
   }
   public add(k: string) {
-    this.keywords.push(k);
+    this.keywords.add(k);
   }
-  public merge(t: Trie) {
-    this.keywords.push(... t.keywords);
+  public delete(k: string) {
+    this.keywords.delete(k)
+  }
+  public merge(t?: Trie) {
+    for(const keyword of t?.keywords ?? []) {
+      this.keywords.add(keyword);
+    }
   }
 }
 
 export class AhoCorasick {
   private root = new Trie();
+  private failure_link = new Map<Trie, Trie>();
 
   constructor(keywords: string[]) {
     // build goto
     for (const keyword of keywords) {
       let current: Trie = this.root;
       for (const ch of keyword) {
-        let next: Trie = current.get(ch) ?? (new Trie())
+        let next = current.get(ch) ?? (new Trie(current))
         current.set(ch, next);
         current = next;
       }
@@ -43,26 +53,27 @@ export class AhoCorasick {
     }
 
     // build failure
-    const queue: [Trie, Trie, string][] = [];
+    const queue: [Trie, string][] = [];
     for (const [ch, next] of this.root.entries()) {
-      queue.push([next, this.root, ch]);
+      queue.push([next, ch]);
     }
     while (queue.length > 0) {
-      const [current, parent, ch] = queue.shift()!;
+      const [current, ch] = queue.shift()!;
+      const parent = current.parent!;
 
-      let failure = parent.failure;
+      // calc failure
+      let failure = this.failure_link.get(parent) ?? null;
       while (failure != null && !failure.has(ch)) {
-        failure = failure.failure;
+        failure = this.failure_link.get(failure) ?? null;
       }
-      current.failure = failure?.get(ch) ?? this.root;
-      current.merge(current.failure);
+      failure = failure?.get(ch) ?? this.root;
+      this.failure_link.set(current, failure);
+      current.merge(failure);
 
       for (const [ch, next] of current.entries()) {
-        queue.push([next, current, ch]);
+        queue.push([next, ch]);
       }
     }
-
-    this.root.failure = this.root;
   }
 
   hasKeywordInText(text: string): boolean {
@@ -70,12 +81,11 @@ export class AhoCorasick {
     for (const ch of text) {
       if (!state.empty()) { return true; }
 
-      let next = state.get(ch);
-      while (next == null) {
-        state = state.failure!;
-        next = state.get(ch) ?? (state !== this.root ? undefined : this.root);
+      while (!state.has(ch) && state !== this.root) {
+        state = this.failure_link.get(state)!;
+        if (state.has(ch)) { break; }
       }
-      state = next;
+      state = state.get(ch) ?? this.root;
     }
 
     return !state.empty();
@@ -87,30 +97,177 @@ export class AhoCorasick {
 
     let state: Trie = this.root;
     for (let i = 0; i < chs.length; i++) {
-      if (!state.empty()) {
-        for (const keyword of state.keywords) {
-          const begin = i - keyword.length;
-          const end = i;
-          result.push({ begin, end, keyword });
-        }
+      for (const keyword of state.keywords) {
+        const begin = i - keyword.length;
+        const end = i;
+        result.push({ begin, end, keyword });
       }
 
       const ch = chs[i];
 
-      let next = state.get(ch);
-      while (next == null) {
-        state = state.failure!;
-        next = state.get(ch) ?? (state !== this.root ? undefined : this.root);
+      while (!state.has(ch) && state !== this.root) {
+        state = this.failure_link.get(state)!;
+        if (state.has(ch)) { break; }
       }
-      state = next;
+      state = state.get(ch) ?? this.root;
     }
 
-    if (!state.empty()) {
+    for (const keyword of state.keywords) {
+      const begin = chs.length - keyword.length;
+      const end = chs.length;
+      result.push({ begin, end, keyword });
+    }
+
+    return result;
+  }
+}
+
+export class DynamicAhoCorasick {
+  private root = new Trie();
+  private failure_link = new Map<Trie, Trie>();
+  private invert_failure_link = new Map<Trie, Set<Trie>>();
+
+  constructor(keywords: string[]) {
+    // build goto
+    for (const keyword of keywords) {
+      let current: Trie = this.root;
+      for (const ch of keyword) {
+        let next = current.get(ch) ?? (new Trie(current));
+        current.set(ch, next);
+        current = next;
+      }
+      current.add(keyword);
+    }
+
+    // build failure
+    const queue: [Trie, string][] = [];
+    for (const [ch, next] of this.root.entries()) {
+      queue.push([next, ch]);
+    }
+    while (queue.length > 0) {
+      const [current, ch] = queue.shift()!;
+      const parent = current.parent!;
+
+      // calc failure
+      let failure = this.failure_link.get(parent) ?? null;
+      while (failure != null && !failure.has(ch)) {
+        failure = this.failure_link.get(failure) ?? null;
+      }
+      failure = failure?.get(ch) ?? this.root;
+      this.failure_link.set(current, failure);
+      current.merge(this.failure_link.get(current));
+
+      // set invert failure
+      if (!this.invert_failure_link.has(current)) {
+        this.invert_failure_link.set(current, new Set<Trie>());
+      }
+      this.invert_failure_link.get(failure)!.add(current);
+
+      for (const [ch, next] of current.entries()) {
+        queue.push([next, ch]);
+      }
+    }
+  }
+
+  append(keyword: string) {
+    let parent = this.root;
+    const chs = Array.from(keyword);
+    for (let i = 0; i < chs.length; i++) {
+      const ch = chs[i];
+      const current = parent.get(ch) ?? (new Trie(parent));
+      parent.set(ch, current);
+      if (i === chs.length - 1) { current.add(keyword); }
+
+      // failure
+      {
+        let failure = this.failure_link.get(parent) ?? null;
+        while (failure != null && !failure.has(ch)) {
+          failure = this.failure_link.get(failure) ?? null;
+        }
+        failure = failure?.get(ch) ?? this.root;
+        this.failure_link.set(current, failure);
+        if (!this.invert_failure_link.has(failure)) {
+          this.invert_failure_link.set(failure, new Set<Trie>());
+        }
+        this.invert_failure_link.get(failure)!.add(current);
+        current.merge(failure);
+
+        if (!this.invert_failure_link.has(current)) {
+          this.invert_failure_link.set(current, new Set<Trie>());
+        }
+        for (const invert_failure of Array.from(this.invert_failure_link.get(failure)!)) {
+          if (invert_failure.parent == null) { continue; }
+          if (invert_failure.parent.get(ch) !== invert_failure) { continue; }
+          {
+            let failure = this.failure_link.get(invert_failure.parent) ?? null;
+            while (failure != null && !failure.has(ch)) {
+              failure = this.failure_link.get(failure) ?? null;
+            }
+            if (failure?.get(ch) !== current) { continue; }
+          }
+
+          this.failure_link.set(invert_failure, current);
+          this.invert_failure_link.get(failure)!.delete(invert_failure);
+          this.invert_failure_link.get(current)!.add(invert_failure);
+        }
+      }
+
+      // propagete keyword
+      //*
+      const queue: Trie[] = [current];
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        for (const invert_failure of (this.invert_failure_link.get(current)?.values() ?? [])) {
+          invert_failure.merge(current);
+          queue.push(invert_failure);
+        }
+      }
+      //*/
+
+      parent = current;
+    }
+  }
+
+  hasKeywordInText(text: string): boolean {
+    let state: Trie = this.root;
+    for (const ch of text) {
+      if (!state.empty()) { return true; }
+
+      while (!state.has(ch) && state !== this.root) {
+        state = this.failure_link.get(state)!;
+        if (state.has(ch)) { break; }
+      }
+      state = state.get(ch) ?? this.root;
+    }
+
+    return !state.empty();
+  }
+
+  matchInText(text: string): { begin: number, end: number, keyword: string }[] {
+    const result: { begin: number, end: number, keyword: string }[] = [];
+    const chs = Array.from(text);
+
+    let state: Trie = this.root;
+    for (let i = 0; i < chs.length; i++) {
       for (const keyword of state.keywords) {
-        const begin = chs.length - keyword.length;
-        const end = chs.length;
+        const begin = i - keyword.length;
+        const end = i;
         result.push({ begin, end, keyword });
       }
+
+      const ch = chs[i];
+
+      while (!state.has(ch) && state !== this.root) {
+        state = this.failure_link.get(state)!;
+        if (state.has(ch)) { break; }
+      }
+      state = state.get(ch) ?? this.root;
+    }
+
+    for (const keyword of state.keywords) {
+      const begin = chs.length - keyword.length;
+      const end = chs.length;
+      result.push({ begin, end, keyword });
     }
 
     return result;

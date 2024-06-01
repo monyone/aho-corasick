@@ -1,5 +1,5 @@
 import { Chance } from 'chance';
-import { AhoCorasick as AhoCorasickMonyone } from '../src';
+import { AhoCorasick as AhoCorasickMonyone, DynamicAhoCorasick as DynamicAhoCorasickMonyone } from '../src';
 import { Trie as AhoCorasickTanishiking } from "@tanishiking/aho-corasick";
 import AhoCorasickBrunorb from 'ahocorasick';
 import AhoCorasickSonofmagic from 'modern-ahocorasick'
@@ -21,6 +21,26 @@ const [keywords, text] = generate(10000, 1000000);
 
   const prepare_begin = performance.now();
   const aho = new AhoCorasickMonyone(keywords);
+  const prepare_end = performance.now();
+  console.log(`${name}'s build: ${(prepare_end - prepare_begin) / 1000}`)
+
+  const execution_begin = performance.now();
+  const result = aho.matchInText(text);
+  const execution_end = performance.now();
+  console.log(`${name}'s execution: ${(execution_end - execution_begin) / 1000}`)
+  console.log(`${name}'s result count: ${result.length}`)
+  console.log();
+}
+
+// @monyone/aho-corasick
+{
+  const name = '@monyone/aho-corasick dynamic'
+
+  const prepare_begin = performance.now();
+  const aho = new DynamicAhoCorasickMonyone([]);
+  for (const keyword of keywords) {
+    aho.append(keyword);
+  }
   const prepare_end = performance.now();
   console.log(`${name}'s build: ${(prepare_end - prepare_begin) / 1000}`)
 

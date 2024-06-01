@@ -1,12 +1,12 @@
 {
   "name": "@monyone/aho-corasick",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Aho Corasick",
   "main": "dist/index.js",
   "license": "MIT",
   "scripts": {
     "build": "tsc",
-    "pref": "ts-node --files ./perf/index.ts"
+    "perf": "ts-node --files ./perf/index.ts"
   },
   "devDependencies": {
     "@tanishiking/aho-corasick": "^0.0.1",
