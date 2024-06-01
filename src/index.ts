@@ -159,7 +159,7 @@ export class DynamicAhoCorasick extends AhoCorasick {
     }
   }
 
-  public append(keyword: string): void {
+  public add(keyword: string): void {
     let parent = this.root;
     const chs = Array.from(keyword);
 
