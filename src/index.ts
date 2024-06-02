@@ -1,7 +1,7 @@
 class Trie {
   public readonly parent: Trie | null = null;
   private goto: Map<string, Trie> = new Map<string, Trie>();
-  public readonly keywords: Set<string> = new Set<string>();
+  private keywords: Set<string> = new Set<string>();
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
@@ -35,8 +35,11 @@ class Trie {
   public delete(k: string) {
     this.keywords.delete(k)
   }
+  public values() {
+    return this.keywords.values();
+  }
   public merge(t?: Trie) {
-    for(const keyword of t?.keywords ?? []) {
+    for(const keyword of t?.values() ?? []) {
       this.keywords.add(keyword);
     }
   }
@@ -107,7 +110,7 @@ export class AhoCorasick {
 
     let state: Trie = this.root;
     for (let i = 0; i < chs.length; i++) {
-      for (const keyword of state.keywords) {
+      for (const keyword of state.values()) {
         const begin = i - keyword.length;
         const end = i;
         result.push({ begin, end, keyword });
@@ -122,7 +125,7 @@ export class AhoCorasick {
       state = state.go(ch) ?? this.root;
     }
 
-    for (const keyword of state.keywords) {
+    for (const keyword of state.values()) {
       const begin = chs.length - keyword.length;
       const end = chs.length;
       result.push({ begin, end, keyword });
