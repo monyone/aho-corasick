@@ -187,20 +187,19 @@ export class DynamicAhoCorasick extends AhoCorasick {
       if (!this.invert_failure_link.has(current)) {
         this.invert_failure_link.set(current, new Set<Trie>());
       }
-      for (const invert_failure of Array.from(this.invert_failure_link.get(failure)!)) {
-        if (invert_failure.parent == null) { continue; }
-        if (invert_failure.parent.go(ch) !== invert_failure) { continue; } // root node is fallback, so specify ege
-        { // recalc failure in invert_failure
-          let failure = this.failure_link.get(invert_failure.parent) ?? null;
-          while (failure != null && !failure.can(ch)) {
-            failure = this.failure_link.get(failure) ?? null;
-          }
-          if (failure?.go(ch) !== current) { continue; }
+      let queue: Trie[] = [... (this.invert_failure_link.get(parent) ?? [])];
+      while (queue.length > 0) {
+        const before = queue.shift()!;
+
+        if (before.can(ch)) {
+          const invert_failure = before.go(ch)!;
+          this.failure_link.set(invert_failure, current);
+          this.invert_failure_link.get(failure)!.delete(invert_failure);
+          this.invert_failure_link.get(current)!.add(invert_failure);
+          continue;
         }
 
-        this.failure_link.set(invert_failure, current);
-        this.invert_failure_link.get(failure)!.delete(invert_failure);
-        this.invert_failure_link.get(current)!.add(invert_failure);
+        queue.push(... (this.invert_failure_link.get(before) ?? []))
       }
 
       parent = current;
