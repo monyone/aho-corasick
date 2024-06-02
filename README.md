@@ -14,7 +14,7 @@ npm i @monyone/aho-corasick
 import { AhoCorasick } from '@monyone/aho-corasick';
 
 const ahocorasick = new AhoCorasick(keywords);
-const hasAnyKeyword: boolean = aho.hasKeywordInText(text);
+const hasAnyKeyword: boolean = ahocorasick.hasKeywordInText(text);
 ```
 
 ### Keyword Matching
@@ -23,7 +23,7 @@ const hasAnyKeyword: boolean = aho.hasKeywordInText(text);
 import { AhoCorasick } from '@monyone/aho-corasick';
 
 const ahocorasick = new AhoCorasick(keywords);
-const match: { begin: number, end: number, keyword: string}[] = aho.matchInText(text);
+const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matchInText(text);
 ```
 
 ### Dynamic Addition/Deletion
@@ -34,6 +34,6 @@ import { DynamicAhoCorasick } from '@monyone/aho-corasick';
 const ahocorasick = new DynamicAhoCorasick(keywords);
 ahocorasick.add('test')
 ahocorasick.delete('test')
-const match: { begin: number, end: number, keyword: string}[] = aho.matchInText(text);
+const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matchInText(text);
 ```
 
