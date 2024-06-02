@@ -39,7 +39,7 @@ const [keywords, text] = generate(10000, 1000000);
   const prepare_begin = performance.now();
   const aho = new DynamicAhoCorasickMonyone([]);
   for (const keyword of keywords) {
-    aho.append(keyword);
+    aho.add(keyword);
   }
   const prepare_end = performance.now();
   console.log(`${name}'s build: ${(prepare_end - prepare_begin) / 1000}`)
