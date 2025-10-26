@@ -24,12 +24,13 @@ class DoubleArray {
         const leafs = Array.from(this.code.values()).filter((code) => words.some((word) => code === word[0]));
 
         let offset = node;
+        while (offset < this.check.length && this.check[offset] >= 0) { offset++; }
         LOOP:
         while (true) {
           for (const leaf of leafs) {
             const next = offset + leaf;
             if (next < this.check.length && this.check[next] >= 0) {
-              offset += 1;
+              offset = next + 1;
               continue LOOP;
             }
           }
