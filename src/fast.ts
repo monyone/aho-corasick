@@ -1,3 +1,28 @@
+class Trie {
+  public readonly parent: Trie | null = null;
+  private goto: Map<number, Trie> = new Map<number, Trie>();
+
+  public constructor(parent?: Trie) {
+    this.parent = parent ?? null;
+  }
+
+  public has(s: number): boolean {
+    return this.goto.has(s);
+  }
+
+  public set(s: number, next: Trie) {
+    return this.goto.set(s, next);
+  }
+
+  public go(s: number) {
+    return this.goto.get(s);
+  }
+
+  public keys(): Iterable<number> {
+    return this.goto.keys();
+  }
+}
+
 class DoubleArray {
   private code: Map<string, number>;
   private base: number[] = [0];
@@ -16,13 +41,25 @@ class DoubleArray {
     const unique = new Set(keywords);
     const words = Array.from(unique.values()).map((keyword) => Array.from(keyword).map((character) => this.code.get(character)!));
 
+    // construct Trie
+    const root = new Trie();
+    for (const word of words) {
+      let node = root;
+      for (const character of word) {
+        if (!node.has(character)) {
+          node.set(character, new Trie(node));
+        }
+        node = node.go(character)!;
+      }
+    }
+
     // construct Double Array
     {
-      const queue: [number, number, number[][]][] = [[0, 0, words]];
+      const queue: [number, Trie][] = [[0, root]];
       while (queue.length > 0) {
-        const [node, depth, words] = queue.shift()!;
-        const leafs = new Set(words.map((word) => word[depth]).filter(Boolean));
-        const max_leaf = words.reduce((max, word) => Math.max(max, word[depth] ?? 0), 0);
+        const [node, trie] = queue.shift()!;
+        const leafs = Array.from(trie.keys());
+        const max_leaf = leafs.reduce((a, b) => Math.max(a, b), 0);
 
         let offset = node;
         while (offset < this.check.length && this.check[offset] >= 0) { offset++; }
@@ -49,7 +86,7 @@ class DoubleArray {
         for (const leaf of leafs) {
           const next = offset + leaf;
           this.check[next] = node;
-          queue.push([next, depth + 1, words.filter((word) => word[depth] === leaf)]);
+          queue.push([next, trie.go(leaf)!]);
         }
       }
     }
@@ -65,10 +102,10 @@ class DoubleArray {
     }
     // Build Failure
     {
-      const queue: [number, number[][]][] = [[0, words]];
+      const queue: [number, Trie][] = [[0, root]];
       while (queue.length > 0) {
-        const [parent, words] = queue.shift()!;
-        const leafs = Array.from(this.code.values()).filter((code) => words.some((word) => code === word[0]));
+        const [parent, trie] = queue.shift()!;
+        const leafs = Array.from(trie.keys());
 
         for (const leaf of leafs) {
           const node = parent + this.base[parent] + leaf;
@@ -82,7 +119,7 @@ class DoubleArray {
             this.keywords[node].push(keyword);
           }
 
-          queue.push([node, words.filter((word) => word[0] === leaf).map((word) => word.slice(1))]);
+          queue.push([node, trie.go(leaf)!]);
         }
       }
     }
