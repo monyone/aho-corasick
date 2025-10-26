@@ -3,7 +3,7 @@ class DoubleArray {
   private base: number[] = [0];
   private check: number[] = [-1];
   private failure: number[] = [-1];
-  private keywords: string[][] = [[]];
+  private keywords: [string, number][][] = [[]];
 
   public constructor(keywords: string[]) {
     const set = new Set<string>();
@@ -60,7 +60,7 @@ class DoubleArray {
         for (const character of keyword) {
           node += this.base[node] + this.code.get(character)!
         }
-        this.keywords[node].push(keyword);
+        this.keywords[node].push([keyword, Array.from(keyword).length]);
       }
     }
     // Build Failure
@@ -100,7 +100,7 @@ class DoubleArray {
     return Math.max(node, 0);
   }
 
-  public query(node: number): string[] {
+  public query(node: number): [string, number][] {
     return this.keywords[node];
   }
 }
@@ -128,8 +128,8 @@ export class AhoCorasick {
 
     let node = 0;
     for (let i = 0; i < chs.length; i++) {
-      for (const keyword of this.trie.query(node)) {
-        const begin = i - keyword.length;
+      for (const [keyword, length] of this.trie.query(node)) {
+        const begin = i - length;
         const end = i;
         result.push({ begin, end, keyword });
       }
@@ -138,8 +138,8 @@ export class AhoCorasick {
       node = this.trie.go(node, ch);
     }
 
-    for (const keyword of this.trie.query(node)) {
-      const begin = chs.length - keyword.length;
+    for (const [keyword, length] of this.trie.query(node)) {
+      const begin = chs.length - length;
       const end = chs.length;
       result.push({ begin, end, keyword });
     }
