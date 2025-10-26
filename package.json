@@ -1,6 +1,6 @@
 {
   "name": "@monyone/aho-corasick",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "monyone <monyone.teihen@gmail.com>",
   "description": "Aho Corasick implementation written in TypeScript",
   "keywords": [
@@ -11,6 +11,10 @@
     "url": "https://github.com/monyone/aho-corasick"
   },
   "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./fast": "./dist/fast.js"
+  },
   "license": "MIT",
   "files": [
     "dist/**/*",
