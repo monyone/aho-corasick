@@ -18,10 +18,11 @@ class DoubleArray {
 
     // construct Double Array
     {
-      const queue: [number, number[][]][] = [[0, words]];
+      const queue: [number, number, number[][]][] = [[0, 0, words]];
       while (queue.length > 0) {
-        const [node, words] = queue.shift()!;
-        const leafs = Array.from(this.code.values()).filter((code) => words.some((word) => code === word[0]));
+        const [node, depth, words] = queue.shift()!;
+        const leafs = new Set(words.map((word) => word[depth]).filter(Boolean));
+        const max_leaf = words.reduce((max, word) => Math.max(max, word[depth] ?? 0), 0);
 
         let offset = node;
         while (offset < this.check.length && this.check[offset] >= 0) { offset++; }
@@ -39,7 +40,7 @@ class DoubleArray {
         }
         this.base[node] = offset - node;
 
-        const max = offset + leafs.reduce((a, b) => Math.max(a, b), 0);
+        const max = offset + max_leaf;
         while (this.base.length <= max) { this.base.push(0); }
         while (this.check.length <= max) { this.check.push(-1); }
         while (this.keywords.length <= max) { this.keywords.push([]); }
@@ -48,7 +49,7 @@ class DoubleArray {
         for (const leaf of leafs) {
           const next = offset + leaf;
           this.check[next] = node;
-          queue.push([next, words.filter((word) => word[0] === leaf).map((word) => word.slice(1))]);
+          queue.push([next, depth + 1, words.filter((word) => word[depth] === leaf)]);
         }
       }
     }
