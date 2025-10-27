@@ -37,6 +37,15 @@ ahocorasick.delete('test')
 const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matchInText(text);
 ```
 
+### Greedy Match Variant
+```ts
+import { AhoCorasick } from '@monyone/aho-corasick/greedy';
+
+const ahocorasick = new AhoCorasick(keywords);
+const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matchInText(text);
+```
+
+
 ### More Faster Search (Double Array)
 
 ```ts
