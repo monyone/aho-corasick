@@ -156,6 +156,35 @@ test('Check greedy matching with same length keywords at same position', () => {
   expect(['cat', 'car']).toContain(result[0].keyword);
 });
 
+test('Check greedy chooses longest then continues non-overlapping', () => {
+  const aho = new AhoCorasick(['ab', 'abc', 'cd']);
+  expect(aho.matchInText('abcd')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'abc'}
+  ]);
+});
+
+test('Check greedy non-overlapping with multiple matches', () => {
+  const aho = new AhoCorasick(['abc', 'bcd', 'cde']);
+  expect(aho.matchInText('abcde')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'abc'}
+  ]);
+});
+
+test('Check greedy prefers longer over multiple shorter', () => {
+  const aho = new AhoCorasick(['a', 'b', 'ab']);
+  expect(aho.matchInText('ab')).toStrictEqual([
+    { begin: 0, end: 2, keyword: 'ab'}
+  ]);
+});
+
+test('Check greedy sequential non-overlapping matches', () => {
+  const aho = new AhoCorasick(['abc', 'def']);
+  expect(aho.matchInText('abcdef')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'abc'},
+    { begin: 3, end: 6, keyword: 'def'}
+  ]);
+});
+
 test('Check greedy matching with multiple byte', () => {
   const aho = new AhoCorasick(['シロナ', 'ガス', 'クジラ']);
   expect(aho.matchInText('シロナガスクジラ')).toStrictEqual([
