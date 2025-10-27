@@ -92,14 +92,29 @@ export class AhoCorasick {
     const chs = Array.from(text);
 
     let state: Trie = this.root;
-    let candidate: string = '', candidate_begin = 0, candidate_length = 0;
+    let candidates = [];
     for (let i = 0; i < chs.length; i++) {
       for (const keyword of state.values()) {
         const length = Array.from(keyword).length;
-        if (length > candidate_length ) {
-          candidate = keyword;
-          candidate_begin = i - length;
-          candidate_length = length;
+        const begin = i - length;
+
+        const reserved = candidates.some(({ begin: c_begin, end: c_end}) => {
+          return c_begin < begin && begin < c_end;
+        });
+        if (reserved) { continue; }
+        candidates.push({ begin, end: i, keyword });
+        candidates.sort((a, b) => {
+          if (a.begin !== b.begin) { return a.begin - b.begin; }
+          return b.end - a.end;
+        });
+        for (let i = candidates.length - 2; i >= 0; i--) {
+          const curr = candidates[i + 0];
+          const next = candidates[i + 1];
+
+          if (curr.begin <= next.begin && next.begin < curr.end) {
+            candidates.splice(i + 1, 1);
+            i = Math.min(i + 1, candidates.length - 1);
+          }
         }
       }
 
@@ -107,41 +122,69 @@ export class AhoCorasick {
       if (state.can(ch)) { // go forward
         state = state.go(ch) ?? this.root;
       } else { // use failre
-        if (candidate !== '') {
-          result.push({ begin: candidate_begin, end: candidate_begin + candidate_length , keyword: candidate });
+        for (const candidate of candidates) {
+          result.push(candidate);
         }
 
-        let desire_depth = (state.depth - candidate_length);
-        while (state !== this.root && !(state.can(ch) && state.depth < desire_depth)) {
+        let desire_depth = (i - (candidates[candidates.length - 1]?.end ?? (i - state.depth)));
+        while (state !== this.root && !(state.can(ch) && state.depth <= desire_depth)) {
           state = this.failure_link.get(state)!;
-          if (state.can(ch) && state.depth < desire_depth) { break; }
+          if (state.can(ch) && state.depth <= desire_depth) { break; }
         }
 
-        candidate = '';
-        candidate_begin = 0;
-        candidate_length = 0;
+        candidates = [];
         for (const keyword of state.values()) {
           const length = Array.from(keyword).length;
-          if (length > candidate_length ) {
-            candidate = keyword;
-            candidate_begin = i - length;
-            candidate_length = length;
+          const begin = i - length;
+
+          const reserved = candidates.some(({ begin: c_begin, end: c_end}) => {
+            return c_begin < begin && begin < c_end;
+          });
+          if (reserved) { continue; }
+          candidates.push({ begin, end: i, keyword });
+          candidates.sort((a, b) => {
+            if (a.begin !== b.begin) { return a.begin - b.begin; }
+            return b.end - a.end;
+          });
+          for (let i = candidates.length - 2; i >= 0; i--) {
+            const curr = candidates[i + 0];
+            const next = candidates[i + 1];
+
+            if (curr.begin <= next.begin && next.begin < curr.end) {
+              candidates.splice(i + 1, 1);
+            }
           }
         }
+
         state = state.go(ch) ?? this.root;
       }
     }
 
     for (const keyword of state.values()) {
       const length = Array.from(keyword).length;
-      if (length > candidate_length ) {
-        candidate = keyword;
-        candidate_begin = chs.length - length;
-        candidate_length = length;
+      const begin = chs.length - length;
+
+      const reserved = candidates.some(({ begin: c_begin, end: c_end}) => {
+        return c_begin < begin && begin < c_end;
+      });
+      if (reserved) { continue; }
+      candidates.push({ begin, end: chs.length, keyword });
+      candidates.sort((a, b) => {
+        if (a.begin !== b.begin) { return a.begin - b.begin; }
+        return b.end - a.end;
+      });
+      for (let i = candidates.length - 2; i >= 0; i--) {
+        const curr = candidates[i + 0];
+        const next = candidates[i + 1];
+
+        if (curr.begin <= next.begin && next.begin < curr.end) {
+          candidates.splice(i + 1, 1);
+          i = Math.min(i + 1, candidates.length - 1);
+        }
       }
     }
-    if (candidate !== '') {
-      result.push({ begin: candidate_begin, end: candidate_begin + candidate_length , keyword: candidate });
+    for (const candidate of candidates) {
+      result.push(candidate);
     }
 
     return result;
