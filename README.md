@@ -37,7 +37,7 @@ ahocorasick.delete('test')
 const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matchInText(text);
 ```
 
-### Greedy Match Variant
+### Greedy (Leftmost-Longest) Match Variant
 ```ts
 import { AhoCorasick } from '@monyone/aho-corasick/greedy';
 
