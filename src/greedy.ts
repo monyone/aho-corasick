@@ -98,22 +98,20 @@ export class AhoCorasick {
         const length = Array.from(keyword).length;
         const begin = i - length;
 
-        const reserved = candidates.some(({ begin: c_begin, end: c_end}) => {
-          return c_begin < begin && begin < c_end;
-        });
-        if (reserved) { continue; }
-        candidates.push({ begin, end: i, keyword });
-        candidates.sort((a, b) => {
-          if (a.begin !== b.begin) { return a.begin - b.begin; }
-          return b.end - a.end;
-        });
-        for (let i = candidates.length - 2; i >= 0; i--) {
-          const curr = candidates[i + 0];
-          const next = candidates[i + 1];
+        while (true) {
+          if (candidates.length === 0) {
+            candidates.push({ begin, end: i, keyword })
+            break;
+          }
 
-          if (curr.begin <= next.begin && next.begin < curr.end) {
-            candidates.splice(i + 1, 1);
-            i = Math.min(i + 1, candidates.length - 1);
+          const stack = candidates.length - 1;
+          if (candidates[candidates.length - 1].end <= begin) {
+            candidates.push({ begin, end: i, keyword });
+            break;
+          } else if (begin > candidates[stack].begin) {
+            break;
+          } else {
+            candidates.pop();
           }
         }
       }
@@ -144,22 +142,20 @@ export class AhoCorasick {
       const length = Array.from(keyword).length;
       const begin = chs.length - length;
 
-      const reserved = candidates.some(({ begin: c_begin, end: c_end}) => {
-        return c_begin < begin && begin < c_end;
-      });
-      if (reserved) { continue; }
-      candidates.push({ begin, end: chs.length, keyword });
-      candidates.sort((a, b) => {
-        if (a.begin !== b.begin) { return a.begin - b.begin; }
-        return b.end - a.end;
-      });
-      for (let i = candidates.length - 2; i >= 0; i--) {
-        const curr = candidates[i + 0];
-        const next = candidates[i + 1];
+      while (true) {
+        if (candidates.length === 0) {
+          candidates.push({ begin, end: chs.length, keyword })
+          break;
+        }
 
-        if (curr.begin <= next.begin && next.begin < curr.end) {
-          candidates.splice(i + 1, 1);
-          i = Math.min(i + 1, candidates.length - 1);
+        const stack = candidates.length - 1;
+        if (candidates[candidates.length - 1].end <= begin) {
+          candidates.push({ begin, end: chs.length, keyword });
+          break;
+        } else if (begin > candidates[stack].begin) {
+          break;
+        } else {
+          candidates.pop();
         }
       }
     }
