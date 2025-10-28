@@ -288,6 +288,15 @@ test('Check greedy fallback when longest keyword does not match 2', () => {
   ]);
 });
 
+test('Check greedy fallback when longest keyword does not match 2', () => {
+  const aho = new AhoCorasick(['abcdefghx', 'bcd', 'ef', 'gh', 'ghe']);
+  expect(aho.matchInText('abcdefghe')).toStrictEqual([
+    { begin: 1, end: 4, keyword: 'bcd'},
+    { begin: 4, end: 6, keyword: 'ef'},
+    { begin: 6, end: 9, keyword: 'ghe'},
+  ]);
+});
+
 test('Check greedy fallback with multiple length candidates', () => {
   const aho = new AhoCorasick(['abcdefgh', 'abcdef', 'abcd', 'ab']);
   // 'abcdefgx'では最長'abcdefgh'が失敗し、'abcdef'が選ばれる

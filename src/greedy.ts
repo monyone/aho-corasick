@@ -92,7 +92,7 @@ export class AhoCorasick {
     const chs = Array.from(text);
 
     let state: Trie = this.root;
-    let candidates = [];
+    let candidates: { begin: number, end: number, keyword: string }[] = [];
     for (let i = 0; i < chs.length; i++) {
       for (const keyword of state.values()) {
         const length = Array.from(keyword).length;
@@ -122,39 +122,19 @@ export class AhoCorasick {
       if (state.can(ch)) { // go forward
         state = state.go(ch) ?? this.root;
       } else { // use failre
-        for (const candidate of candidates) {
+        for (const candidate of candidates.slice(0, -1)) {
           result.push(candidate);
         }
 
-        let desire_depth = (i - (candidates[candidates.length - 1]?.end ?? (i - state.depth)));
+        let desire_depth = (i - (candidates[candidates.length - 2]?.end ?? (i - state.depth)));
         while (state !== this.root && !(state.can(ch) && state.depth <= desire_depth)) {
           state = this.failure_link.get(state)!;
           if (state.can(ch) && state.depth <= desire_depth) { break; }
         }
 
+        const remain_candidate = candidates.length >= 1 ? candidates[candidates.length - 1] : null;
         candidates = [];
-        for (const keyword of state.values()) {
-          const length = Array.from(keyword).length;
-          const begin = i - length;
-
-          const reserved = candidates.some(({ begin: c_begin, end: c_end}) => {
-            return c_begin < begin && begin < c_end;
-          });
-          if (reserved) { continue; }
-          candidates.push({ begin, end: i, keyword });
-          candidates.sort((a, b) => {
-            if (a.begin !== b.begin) { return a.begin - b.begin; }
-            return b.end - a.end;
-          });
-          for (let i = candidates.length - 2; i >= 0; i--) {
-            const curr = candidates[i + 0];
-            const next = candidates[i + 1];
-
-            if (curr.begin <= next.begin && next.begin < curr.end) {
-              candidates.splice(i + 1, 1);
-            }
-          }
-        }
+        if (remain_candidate) { candidates.push(remain_candidate); }
 
         state = state.go(ch) ?? this.root;
       }
