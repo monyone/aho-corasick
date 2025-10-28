@@ -1,6 +1,6 @@
 {
   "name": "@monyone/aho-corasick",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "author": "monyone <monyone.teihen@gmail.com>",
   "description": "Aho Corasick implementation written in TypeScript",
   "keywords": [
