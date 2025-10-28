@@ -2,7 +2,7 @@ class Trie {
   public readonly parent: Trie | null = null;
   public readonly depth: number;
   private goto: Map<string, Trie> = new Map<string, Trie>();
-  private keywords: Set<string> = new Set<string>();
+  private keyword: string | null = null;
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
@@ -26,24 +26,19 @@ class Trie {
   }
 
   public empty() {
-    return this.keywords.size === 0;
-  }
-  public contains(k: string) {
-    return this.keywords.has(k);
+    return this.keyword == null;
   }
   public add(k: string) {
-    this.keywords.add(k);
+    this.keyword = k;
   }
   public delete(k: string) {
-    this.keywords.delete(k)
+    this.keyword = null;
   }
-  public values() {
-    return this.keywords.values();
+  public value() {
+    return this.keyword;
   }
   public merge(t?: Trie) {
-    for(const keyword of t?.values() ?? []) {
-      this.keywords.add(keyword);
-    }
+    this.keyword ??= t?.keyword ?? null;
   }
 }
 
@@ -74,12 +69,18 @@ export class AhoCorasick {
 
       // calc failure
       let failure = this.failure_link.get(parent) ?? null;
-      while (failure != null && !failure.can(ch)) {
-        failure = this.failure_link.get(failure) ?? null;
+
+      if (current.empty()) {
+        failure = this.failure_link.get(parent) ?? null;
+        while (failure != null && !failure.can(ch)) {
+          failure = this.failure_link.get(failure) ?? null;
+        }
+        failure = failure?.go(ch) ?? this.root;
+        this.failure_link.set(current, failure);
+        current.merge(failure);
+      } else { // if keyword, immidiate root
+        this.failure_link.set(current, this.root);
       }
-      failure = failure?.go(ch) ?? this.root;
-      this.failure_link.set(current, failure);
-      current.merge(failure);
 
       for (const [ch, next] of current.entries()) {
         queue.push([next, ch]);
@@ -94,7 +95,8 @@ export class AhoCorasick {
     let state: Trie = this.root;
     let candidates: { begin: number, end: number, keyword: string }[] = [];
     for (let i = 0; i < chs.length; i++) {
-      for (const keyword of state.values()) {
+      if (!state.empty()){
+        const keyword = state.value()!;
         const length = Array.from(keyword).length;
         const begin = i - length;
 
@@ -138,7 +140,8 @@ export class AhoCorasick {
       }
     }
 
-    for (const keyword of state.values()) {
+    if (!state.empty()){
+      const keyword = state.value()!;
       const length = Array.from(keyword).length;
       const begin = chs.length - length;
 
