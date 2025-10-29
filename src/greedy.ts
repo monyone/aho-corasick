@@ -67,11 +67,8 @@ export class AhoCorasick {
       const [current, ch] = queue.shift()!;
       const parent = current.parent!;
 
-      // calc failure
-      let failure = this.failure_link.get(parent) ?? null;
-
-      if (current.empty()) {
-        failure = this.failure_link.get(parent) ?? null;
+      if (current.empty()) { // calc failure
+        let failure = this.failure_link.get(parent) ?? null;
         while (failure != null && !failure.can(ch)) {
           failure = this.failure_link.get(failure) ?? null;
         }
@@ -119,25 +116,21 @@ export class AhoCorasick {
       }
 
       const ch = chs[i];
-      if (state.can(ch)) { // go forward
-        state = state.go(ch) ?? this.root;
-      } else { // use failre
-        for (const candidate of candidates.slice(0, -1)) {
-          result.push(candidate);
+      if (!state.can(ch)) {  // use failre
+        for (let i = 0; i < candidates.length - 1; i++) {
+          result.push(candidates[i]);
         }
 
-        let desire_depth = (i - (candidates[candidates.length - 2]?.end ?? (i - state.depth)));
-        while (state !== this.root && !(state.can(ch) && state.depth <= desire_depth)) {
+        while (!state.can(ch) && state !== this.root) {
           state = this.failure_link.get(state)!;
-          if (state.can(ch) && state.depth <= desire_depth) { break; }
+          if (state.can(ch)) { break; }
         }
 
         const remain_candidate = candidates.length >= 1 ? candidates[candidates.length - 1] : null;
         candidates = [];
         if (remain_candidate) { candidates.push(remain_candidate); }
-
-        state = state.go(ch) ?? this.root;
       }
+      state = state.go(ch) ?? this.root;
     }
 
     if (!state.empty()){
