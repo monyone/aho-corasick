@@ -33,13 +33,14 @@ class DoubleArray {
   public constructor(keywords: string[]) {
     const set = new Set<string>();
     for (const keyword of keywords) {
-      for (const character of keyword) {
+      for (let i = 0; i < keyword.length; i++) {
+        const character = keyword[i];
         set.add(character);
       }
     }
     this.code = new Map<string, number>(Array.from(set.values()).map((v, i) => [v, i + 1]));
     const unique = new Set(keywords);
-    const words = Array.from(unique.values()).map((keyword) => Array.from(keyword).map((character) => this.code.get(character)!));
+    const words = Array.from(unique.values()).map((keyword) => keyword.split('').map((character) => this.code.get(character)!));
 
     // construct Trie
     const root = new Trie();
@@ -97,7 +98,7 @@ class DoubleArray {
         for (const character of keyword) {
           node += this.base[node] + this.code.get(character)!
         }
-        this.keywords[node].push([keyword, Array.from(keyword).length]);
+        this.keywords[node].push([keyword, keyword.length]);
       }
     }
     // Build Failure
@@ -161,23 +162,22 @@ export class AhoCorasick {
 
   public matchInText(text: string): { begin: number, end: number, keyword: string }[] {
     const result: { begin: number, end: number, keyword: string }[] = [];
-    const chs = Array.from(text);
 
     let node = 0;
-    for (let i = 0; i < chs.length; i++) {
+    for (let i = 0; i < text.length; i++) {
       for (const [keyword, length] of this.trie.query(node)) {
         const begin = i - length;
         const end = i;
         result.push({ begin, end, keyword });
       }
 
-      const ch = chs[i];
+      const ch = text[i];
       node = this.trie.go(node, ch);
     }
 
     for (const [keyword, length] of this.trie.query(node)) {
-      const begin = chs.length - length;
-      const end = chs.length;
+      const begin = text.length - length;
+      const end = text.length;
       result.push({ begin, end, keyword });
     }
 

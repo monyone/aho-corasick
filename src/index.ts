@@ -57,7 +57,8 @@ export class AhoCorasick {
     // build goto
     for (const keyword of keywords) {
       let current: Trie = this.root;
-      for (const ch of keyword) {
+      for (let i = 0; i < keyword.length; i++) {
+        const ch = keyword[i];
         let next = current.go(ch) ?? (new Trie(current))
         current.define(ch, next);
         current = next;
@@ -106,17 +107,16 @@ export class AhoCorasick {
 
   public matchInText(text: string): { begin: number, end: number, keyword: string }[] {
     const result: { begin: number, end: number, keyword: string }[] = [];
-    const chs = Array.from(text);
 
     let state: Trie = this.root;
-    for (let i = 0; i < chs.length; i++) {
+    for (let i = 0; i < text.length; i++) {
       for (const keyword of state.values()) {
         const begin = i - keyword.length;
         const end = i;
         result.push({ begin, end, keyword });
       }
 
-      const ch = chs[i];
+      const ch = text[i];
 
       while (!state.can(ch) && state !== this.root) {
         state = this.failure_link.get(state)!;
@@ -126,8 +126,8 @@ export class AhoCorasick {
     }
 
     for (const keyword of state.values()) {
-      const begin = chs.length - keyword.length;
-      const end = chs.length;
+      const begin = text.length - keyword.length;
+      const end = text.length;
       result.push({ begin, end, keyword });
     }
 
@@ -164,14 +164,13 @@ export class DynamicAhoCorasick extends AhoCorasick {
 
   public add(keyword: string): void {
     let parent = this.root;
-    const chs = Array.from(keyword);
 
     // failure
-    for (let i = 0; i < chs.length; i++) {
-      const ch = chs[i];
+    for (let i = 0; i < keyword.length; i++) {
+      const ch = keyword[i];
       const current = parent.go(ch) ?? (new Trie(parent));
       parent.define(ch, current);
-      if (i === chs.length - 1) { current.add(keyword); }
+      if (i === keyword.length - 1) { current.add(keyword); }
 
       // build failure link
       let failure = this.failure_link.get(parent) ?? null;
@@ -222,8 +221,8 @@ export class DynamicAhoCorasick extends AhoCorasick {
 
   public delete(keyword: string) {
     let target = this.root;
-    const chs = Array.from(keyword);
-    for (const ch of chs) {
+    for (let i = 0; i < keyword.length; i++) {
+      const ch = keyword[i];
       if (!target.can(ch)) { return; }
       target = target.go(ch)!;
     }
@@ -240,8 +239,8 @@ export class DynamicAhoCorasick extends AhoCorasick {
     }
 
     // remove defunct nodes
-    for (let leaf: Trie | null = target, index: number = chs.length - 1; leaf != null && leaf.defunct(); leaf = leaf.parent ?? null, index--) {
-      leaf.parent?.undef(chs[index]);
+    for (let leaf: Trie | null = target, index: number = keyword.length - 1; leaf != null && leaf.defunct(); leaf = leaf.parent ?? null, index--) {
+      leaf.parent?.undef(keyword[index]);
 
       const failure = this.failure_link.get(leaf)!;
       this.invert_failure_link.get(failure)!.delete(leaf);

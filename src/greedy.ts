@@ -48,7 +48,8 @@ export class AhoCorasick {
     // build goto
     for (const keyword of keywords) {
       let current: Trie = this.root;
-      for (const ch of keyword) {
+      for (let i = 0; i < keyword.length; i++) {
+        const ch = keyword[i];
         let next = current.go(ch) ?? (new Trie(current))
         current.define(ch, next);
         current = next;
@@ -85,14 +86,13 @@ export class AhoCorasick {
 
   public matchInText(text: string): { begin: number, end: number, keyword: string }[] {
     const result: { begin: number, end: number, keyword: string }[] = [];
-    const chs = Array.from(text);
 
     let state: Trie = this.root;
     let candidates: { begin: number, end: number, keyword: string }[] = [];
-    for (let i = 0; i < chs.length; i++) {
+    for (let i = 0; i < text.length; i++) {
       if (!state.empty()){
         const keyword = state.value()!;
-        const length = Array.from(keyword).length;
+        const length = keyword.length;
         const begin = i - length;
 
         while (true) {
@@ -113,7 +113,7 @@ export class AhoCorasick {
         }
       }
 
-      const ch = chs[i];
+      const ch = text[i];
       if (!state.can(ch)) {  // use failre
         for (let i = 0; i < candidates.length - 1; i++) {
           result.push(candidates[i]);
@@ -133,18 +133,18 @@ export class AhoCorasick {
 
     if (!state.empty()){
       const keyword = state.value()!;
-      const length = Array.from(keyword).length;
-      const begin = chs.length - length;
+      const length = keyword.length;
+      const begin = text.length - length;
 
       while (true) {
         if (candidates.length === 0) {
-          candidates.push({ begin, end: chs.length, keyword })
+          candidates.push({ begin, end: text.length, keyword })
           break;
         }
 
         const stack = candidates.length - 1;
         if (candidates[candidates.length - 1].end <= begin) {
-          candidates.push({ begin, end: chs.length, keyword });
+          candidates.push({ begin, end: text.length, keyword });
           break;
         } else if (begin > candidates[stack].begin) {
           break;
