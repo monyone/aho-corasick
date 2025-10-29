@@ -121,7 +121,6 @@ export class AhoCorasick {
 
         while (!state.can(ch) && state !== this.root) {
           state = this.failure_link.get(state)!;
-          if (state.can(ch)) { break; }
         }
 
         const remain_candidate = candidates.length >= 1 ? candidates[candidates.length - 1] : null;

@@ -97,7 +97,6 @@ export class AhoCorasick {
 
       while (!state.can(ch) && state !== this.root) {
         state = this.failure_link.get(state)!;
-        if (state.can(ch)) { break; }
       }
       state = state.go(ch) ?? this.root;
     }
@@ -120,7 +119,6 @@ export class AhoCorasick {
 
       while (!state.can(ch) && state !== this.root) {
         state = this.failure_link.get(state)!;
-        if (state.can(ch)) { break; }
       }
       state = state.go(ch) ?? this.root;
     }
