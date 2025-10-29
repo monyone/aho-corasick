@@ -220,7 +220,7 @@ export class DynamicAhoCorasick extends AhoCorasick {
     }
   }
 
-  delete(keyword: string) {
+  public delete(keyword: string) {
     let target = this.root;
     const chs = Array.from(keyword);
     for (const ch of chs) {
