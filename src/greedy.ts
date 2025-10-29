@@ -1,12 +1,10 @@
 class Trie {
   public readonly parent: Trie | null = null;
-  public readonly depth: number;
   private goto: Map<string, Trie> = new Map<string, Trie>();
   private keyword: string | null = null;
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
-    this.depth = (parent?.depth ?? -1) + 1;
   }
 
   public can(s: string) {
