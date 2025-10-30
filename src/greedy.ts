@@ -1,10 +1,12 @@
 class Trie {
   public readonly parent: Trie | null = null;
+  public readonly depth: number;
   private goto: Map<string, Trie> = new Map<string, Trie>();
   private keyword: string | null = null;
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
+    this.depth = (parent?.depth ?? -1) + 1;
   }
 
   public can(s: string) {
@@ -66,17 +68,14 @@ export class AhoCorasick {
       const [current, ch] = queue.shift()!;
       const parent = current.parent!;
 
-      if (current.empty()) { // calc failure
-        let failure = this.failure_link.get(parent) ?? null;
-        while (failure != null && !failure.can(ch)) {
-          failure = this.failure_link.get(failure) ?? null;
-        }
-        failure = failure?.go(ch) ?? this.root;
-        this.failure_link.set(current, failure);
-        current.merge(failure);
-      } else { // if keyword, immidiate root
-        this.failure_link.set(current, this.root);
+      // calc failure
+      let failure = this.failure_link.get(parent) ?? null;
+      while (failure != null && !failure.can(ch)) {
+        failure = this.failure_link.get(failure) ?? null;
       }
+      failure = failure?.go(ch) ?? this.root;
+      this.failure_link.set(current, failure);
+      current.merge(failure);
 
       for (const [ch, next] of current.entries()) {
         queue.push([next, ch]);
@@ -94,16 +93,17 @@ export class AhoCorasick {
         const keyword = state.value()!;
         const length = keyword.length;
         const begin = i - length;
+        const end = i;
 
         while (true) {
           if (candidates.length === 0) {
-            candidates.push({ begin, end: i, keyword })
+            candidates.push({ begin, end, keyword })
             break;
           }
 
           const stack = candidates.length - 1;
-          if (candidates[candidates.length - 1].end <= begin) {
-            candidates.push({ begin, end: i, keyword });
+          if (candidates[stack].end <= begin) {
+            candidates.push({ begin, end, keyword });
             break;
           } else if (begin > candidates[stack].begin) {
             break;
@@ -119,8 +119,10 @@ export class AhoCorasick {
           result.push(candidates[i]);
         }
 
-        while (!state.can(ch) && state !== this.root) {
+        let desire_depth = (i - (candidates[candidates.length - 2]?.end ?? (i - state.depth)));
+        while (state !== this.root && !(state.can(ch) && state.depth <= desire_depth)) {
           state = this.failure_link.get(state)!;
+          if (state.can(ch) && state.depth <= desire_depth) { break; }
         }
 
         const remain_candidate = candidates.length >= 1 ? candidates[candidates.length - 1] : null;
