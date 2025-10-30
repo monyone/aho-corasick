@@ -2,7 +2,7 @@ class Trie {
   public readonly parent: Trie | null = null;
   public readonly depth: number;
   private goto: Map<string, Trie> = new Map<string, Trie>();
-  private keyword: string | null = null;
+  private keywords: Set<string> = new Set<string>();
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
@@ -26,19 +26,24 @@ class Trie {
   }
 
   public empty() {
-    return this.keyword == null;
+    return this.keywords.size === 0;
+  }
+  public contains(k: string) {
+    return this.keywords.has(k);
   }
   public add(k: string) {
-    this.keyword = k;
+    this.keywords.add(k);
   }
   public delete(k: string) {
-    this.keyword = null;
+    this.keywords.delete(k)
   }
-  public value() {
-    return this.keyword;
+  public values() {
+    return this.keywords.values();
   }
   public merge(t?: Trie) {
-    this.keyword ??= t?.keyword ?? null;
+    for(const keyword of t?.values() ?? []) {
+      this.keywords.add(keyword);
+    }
   }
 }
 
@@ -89,8 +94,7 @@ export class AhoCorasick {
     let state: Trie = this.root;
     let candidates: { begin: number, end: number, keyword: string }[] = [];
     for (let i = 0; i < text.length; i++) {
-      if (!state.empty()){
-        const keyword = state.value()!;
+      for (const keyword of state.values()) {
         const length = keyword.length;
         const begin = i - length;
         const end = i;
@@ -102,7 +106,7 @@ export class AhoCorasick {
           }
 
           const stack = candidates.length - 1;
-          if (candidates[stack].end <= begin) {
+          if (candidates[candidates.length - 1].end <= begin) {
             candidates.push({ begin, end, keyword });
             break;
           } else if (begin > candidates[stack].begin) {
@@ -114,7 +118,7 @@ export class AhoCorasick {
       }
 
       const ch = text[i];
-      if (!state.can(ch)) {  // use failre
+      if (!state.can(ch)) { // use failure
         for (let i = 0; i < candidates.length - 1; i++) {
           result.push(candidates[i]);
         }
@@ -132,20 +136,20 @@ export class AhoCorasick {
       state = state.go(ch) ?? this.root;
     }
 
-    if (!state.empty()){
-      const keyword = state.value()!;
+    for (const keyword of state.values()) {
       const length = keyword.length;
       const begin = text.length - length;
+      const end = text.length;
 
       while (true) {
         if (candidates.length === 0) {
-          candidates.push({ begin, end: text.length, keyword })
+          candidates.push({ begin, end, keyword })
           break;
         }
 
         const stack = candidates.length - 1;
         if (candidates[candidates.length - 1].end <= begin) {
-          candidates.push({ begin, end: text.length, keyword });
+          candidates.push({ begin, end, keyword });
           break;
         } else if (begin > candidates[stack].begin) {
           break;
