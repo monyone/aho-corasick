@@ -3,6 +3,7 @@ class Trie {
   public readonly depth: number;
   private goto: Map<string, Trie> = new Map<string, Trie>();
   private keywords: Set<string> = new Set<string>();
+  public isdata: boolean = false;
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
@@ -54,7 +55,7 @@ export class AhoCorasick {
   constructor(keywords: string[]) {
     // build goto
     for (const keyword of keywords) {
-      let current: Trie = this.root;
+      let current = this.root;
       for (let i = 0; i < keyword.length; i++) {
         const ch = keyword[i];
         let next = current.go(ch) ?? (new Trie(current))
@@ -62,28 +63,59 @@ export class AhoCorasick {
         current = next;
       }
       current.add(keyword);
+      current.isdata = true;
     }
 
-    // build failure
-    const queue: [Trie, string][] = [];
-    for (const [ch, next] of this.root.entries()) {
-      queue.push([next, ch]);
-    }
-    while (queue.length > 0) {
-      const [current, ch] = queue.shift()!;
-      const parent = current.parent!;
-
-      // calc failure
-      let failure = this.failure_link.get(parent) ?? null;
-      while (failure != null && !failure.can(ch)) {
-        failure = this.failure_link.get(failure) ?? null;
-      }
-      failure = failure?.go(ch) ?? this.root;
-      this.failure_link.set(current, failure);
-      current.merge(failure);
-
-      for (const [ch, next] of current.entries()) {
+    // build failure pt1
+    {
+      const queue: [Trie, string][] = [];
+      for (const [ch, next] of this.root.entries()) {
         queue.push([next, ch]);
+      }
+      while (queue.length > 0) {
+        const [current, ch] = queue.shift()!;
+        const parent = current.parent!;
+
+        // calc failure
+        let failure = this.failure_link.get(parent) ?? null;
+        while (failure != null && !failure.can(ch)) {
+          failure = this.failure_link.get(failure) ?? null;
+        }
+        failure = failure?.go(ch) ?? this.root;
+        this.failure_link.set(current, failure);
+        current.merge(failure);
+
+        for (const [ch, next] of current.entries()) {
+          queue.push([next, ch]);
+        }
+      }
+    }
+
+    // build failure pt2
+    {
+      const queue: [Trie, string][] = [];
+      for (const [ch, next] of this.root.entries()) {
+        queue.push([next, ch]);
+      }
+      while (queue.length > 0) {
+        const [current, ch] = queue.shift()!;
+        const parent = current.parent!;
+
+        // calc failure
+        if (!current.isdata) {
+          let failure = this.failure_link.get(parent) ?? null;
+          while (failure != null && !failure.can(ch)) {
+            failure = this.failure_link.get(failure) ?? null;
+          }
+          failure = failure?.go(ch) ?? this.root;
+          this.failure_link.set(current, failure);
+        } else {
+          this.failure_link.set(current, this.root);
+        }
+
+        for (const [ch, next] of current.entries()) {
+          queue.push([next, ch]);
+        }
       }
     }
   }
@@ -119,19 +151,13 @@ export class AhoCorasick {
 
       const ch = text[i];
       if (!state.can(ch)) { // use failure
-        for (let i = 0; i < candidates.length - 1; i++) {
-          result.push(candidates[i]);
-        }
-
-        let desire_depth = (i - (candidates[candidates.length - 2]?.end ?? (i - state.depth)));
-        while (state !== this.root && !(state.can(ch) && state.depth <= desire_depth)) {
+        while (state !== this.root && !(state.can(ch))) {
           state = this.failure_link.get(state)!;
-          if (state.can(ch) && state.depth <= desire_depth) { break; }
         }
+        const start = i - state.depth;
 
-        const remain_candidate = candidates.length >= 1 ? candidates[candidates.length - 1] : null;
-        candidates = [];
-        if (remain_candidate) { candidates.push(remain_candidate); }
+        result.push(... candidates.filter(({ end }) => end <= start));
+        candidates = candidates.filter(({ end }) => end > start);
       }
       state = state.go(ch) ?? this.root;
     }
