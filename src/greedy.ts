@@ -59,12 +59,13 @@ export class AhoCorasick {
 
     // build failure
     {
+      let top = 0;
       const queue: [Trie, string][] = [];
       for (const [ch, next] of this.root.entries()) {
         queue.push([next, ch]);
       }
-      while (queue.length > 0) {
-        const data = queue.shift()!;
+      while (top < queue.length) {
+        const data = queue[top++];
         const current = data[0];
         const ch = data[1];
         const parent = current.parent!;

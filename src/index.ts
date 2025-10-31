@@ -67,25 +67,28 @@ export class AhoCorasick {
     }
 
     // build failure
-    const queue: [Trie, string][] = [];
-    for (const [ch, next] of this.root.entries()) {
-      queue.push([next, ch]);
-    }
-    while (queue.length > 0) {
-      const [current, ch] = queue.shift()!;
-      const parent = current.parent!;
-
-      // calc failure
-      let failure = this.failure_link.get(parent) ?? null;
-      while (failure != null && !failure.can(ch)) {
-        failure = this.failure_link.get(failure) ?? null;
-      }
-      failure = failure?.go(ch) ?? this.root;
-      this.failure_link.set(current, failure);
-      current.merge(failure);
-
-      for (const [ch, next] of current.entries()) {
+    {
+      let top = 0;
+      const queue: [Trie, string][] = [];
+      for (const [ch, next] of this.root.entries()) {
         queue.push([next, ch]);
+      }
+      while (top < queue.length) {
+        const [current, ch] = queue[top++];
+        const parent = current.parent!;
+
+        // calc failure
+        let failure = this.failure_link.get(parent) ?? null;
+        while (failure != null && !failure.can(ch)) {
+          failure = this.failure_link.get(failure) ?? null;
+        }
+        failure = failure?.go(ch) ?? this.root;
+        this.failure_link.set(current, failure);
+        current.merge(failure);
+
+        for (const [ch, next] of current.entries()) {
+          queue.push([next, ch]);
+        }
       }
     }
   }
