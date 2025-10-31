@@ -1,9 +1,9 @@
 class Trie {
   public readonly parent: Trie | null = null;
   public readonly depth: number;
+  public candidate: string | null = null;
+  private keyword: string | null = null;
   private goto: Map<string, Trie> = new Map<string, Trie>();
-  private keywords: Set<string> = new Set<string>();
-  public isdata: boolean = false;
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
@@ -27,24 +27,19 @@ class Trie {
   }
 
   public empty() {
-    return this.keywords.size === 0;
-  }
-  public contains(k: string) {
-    return this.keywords.has(k);
+    return this.keyword == null;
   }
   public add(k: string) {
-    this.keywords.add(k);
+    this.keyword = k;
   }
   public delete(k: string) {
-    this.keywords.delete(k)
+    this.keyword = null;
   }
-  public values() {
-    return this.keywords.values();
+  public value() {
+    return this.keyword;
   }
   public merge(t?: Trie) {
-    for(const keyword of t?.values() ?? []) {
-      this.keywords.add(keyword);
-    }
+    this.keyword ??= t?.keyword ?? null;
   }
 }
 
@@ -63,52 +58,30 @@ export class AhoCorasick {
         current = next;
       }
       current.add(keyword);
-      current.isdata = true;
+      current.candidate = keyword;
     }
 
-    // build failure pt1
+    // build failure
     {
       const queue: [Trie, string][] = [];
       for (const [ch, next] of this.root.entries()) {
         queue.push([next, ch]);
       }
       while (queue.length > 0) {
-        const [current, ch] = queue.shift()!;
+        const data = queue.shift()!;
+        const current = data[0];
+        const ch = data[1];
         const parent = current.parent!;
 
         // calc failure
-        let failure = this.failure_link.get(parent) ?? null;
-        while (failure != null && !failure.can(ch)) {
-          failure = this.failure_link.get(failure) ?? null;
-        }
-        failure = failure?.go(ch) ?? this.root;
-        this.failure_link.set(current, failure);
-        current.merge(failure);
-
-        for (const [ch, next] of current.entries()) {
-          queue.push([next, ch]);
-        }
-      }
-    }
-
-    // build failure pt2
-    {
-      const queue: [Trie, string][] = [];
-      for (const [ch, next] of this.root.entries()) {
-        queue.push([next, ch]);
-      }
-      while (queue.length > 0) {
-        const [current, ch] = queue.shift()!;
-        const parent = current.parent!;
-
-        // calc failure
-        if (!current.isdata) {
+        if (current.candidate == null) {
           let failure = this.failure_link.get(parent) ?? null;
           while (failure != null && !failure.can(ch)) {
             failure = this.failure_link.get(failure) ?? null;
           }
           failure = failure?.go(ch) ?? this.root;
           this.failure_link.set(current, failure);
+          current.merge(failure);
         } else {
           this.failure_link.set(current, this.root);
         }
@@ -126,7 +99,8 @@ export class AhoCorasick {
     let state: Trie = this.root;
     let candidates: { begin: number, end: number, keyword: string }[] = [];
     for (let i = 0; i < text.length; i++) {
-      for (const keyword of state.values()) {
+      if (!state.empty()) {
+        const keyword = state.value()!;
         const length = keyword.length;
         const begin = i - length;
         const end = i;
@@ -154,15 +128,12 @@ export class AhoCorasick {
         while (state !== this.root && !(state.can(ch))) {
           state = this.failure_link.get(state)!;
         }
-        const start = i - state.depth;
-
-        result.push(... candidates.filter(({ end }) => end <= start));
-        candidates = candidates.filter(({ end }) => end > start);
       }
       state = state.go(ch) ?? this.root;
     }
 
-    for (const keyword of state.values()) {
+    if (!state.empty()) {
+      const keyword = state.value()!;
       const length = keyword.length;
       const begin = text.length - length;
       const end = text.length;
