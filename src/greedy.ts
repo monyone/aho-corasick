@@ -90,10 +90,9 @@ export class AhoCorasick {
   }
 
   public matchInText(text: string): { begin: number, end: number, keyword: string }[] {
-    const result: { begin: number, end: number, keyword: string }[] = [];
+    const candidates: { begin: number, end: number, keyword: string }[] = [];
 
     let state: Trie = this.root;
-    let candidates: { begin: number, end: number, keyword: string }[] = [];
     for (let i = 0; i < text.length; i++) {
       if (!state.empty()) {
         const keyword = state.value()!;
@@ -151,10 +150,7 @@ export class AhoCorasick {
         }
       }
     }
-    for (const candidate of candidates) {
-      result.push(candidate);
-    }
 
-    return result;
+    return candidates;
   }
 }
