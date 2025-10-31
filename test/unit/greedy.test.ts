@@ -402,3 +402,12 @@ test('Check surrogate pairs in Japanese text', () => {
     { begin: 13, end: 15, keyword: '🍜'}
   ]);
 });
+
+test('check failure selection algorithm', () => {
+  const aho = new AhoCorasick(['dcbacbax', 'ba', 'cba', 'dc', 'cb', 'a']);
+  expect(aho.matchInText('dcbacba')).toStrictEqual([
+    { begin: 0, end: 2, keyword: 'dc'},
+    { begin: 2, end: 4, keyword: 'ba'},
+    { begin: 4, end: 7, keyword: 'cba'},
+  ]);
+});

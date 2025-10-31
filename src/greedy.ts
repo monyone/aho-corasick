@@ -1,13 +1,10 @@
 class Trie {
   public readonly parent: Trie | null = null;
-  public readonly depth: number;
-  public candidate: string | null = null;
   private keyword: string | null = null;
   private goto: Map<string, Trie> = new Map<string, Trie>();
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
-    this.depth = (parent?.depth ?? -1) + 1;
   }
 
   public can(s: string) {
@@ -58,7 +55,6 @@ export class AhoCorasick {
         current = next;
       }
       current.add(keyword);
-      current.candidate = keyword;
     }
 
     // build failure
@@ -74,7 +70,7 @@ export class AhoCorasick {
         const parent = current.parent!;
 
         // calc failure
-        if (current.candidate == null) {
+        if (current.empty()) {
           let failure = this.failure_link.get(parent) ?? null;
           while (failure != null && !failure.can(ch)) {
             failure = this.failure_link.get(failure) ?? null;
