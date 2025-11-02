@@ -411,3 +411,92 @@ test('check failure selection algorithm', () => {
     { begin: 4, end: 7, keyword: 'cba'},
   ]);
 });
+
+test('Check duplicate keywords', () => {
+  const aho = new AhoCorasick(['test', 'test', 'abc', 'test']);
+  expect(aho.matchInText('testabc')).toStrictEqual([
+    { begin: 0, end: 4, keyword: 'test'},
+    { begin: 4, end: 7, keyword: 'abc'}
+  ]);
+});
+
+test('Check very long keyword matching', () => {
+  const longKeyword = 'a'.repeat(1000);
+  const aho = new AhoCorasick([longKeyword, 'a'.repeat(500)]);
+  expect(aho.matchInText(longKeyword)).toStrictEqual([
+    { begin: 0, end: 1000, keyword: longKeyword}
+  ]);
+});
+
+test('Check deep failure link traversal', () => {
+  const aho = new AhoCorasick(['aaaaaab', 'aaaaab', 'aaaab', 'aaab', 'aab', 'ab', 'b']);
+  expect(aho.matchInText('aaaaaaab')).toStrictEqual([
+    { begin: 1, end: 8, keyword: 'aaaaaab'},
+  ]);
+});
+
+test('Check greedy with complex failure transitions', () => {
+  const aho = new AhoCorasick(['ababc', 'abc', 'bab', 'bc', 'c']);
+  expect(aho.matchInText('ababacbc')).toStrictEqual([
+    { begin: 1, end: 4, keyword: 'bab'},
+    { begin: 5, end: 6, keyword: 'c'},
+    { begin: 6, end: 8, keyword: 'bc'},
+  ]);
+});
+
+test('Check greedy with all keywords being prefixes', () => {
+  const aho = new AhoCorasick(['a', 'ab', 'abc', 'abcd', 'abcde']);
+  expect(aho.matchInText('abcde')).toStrictEqual([
+    { begin: 0, end: 5, keyword: 'abcde'}
+  ]);
+  expect(aho.matchInText('abcdeabc')).toStrictEqual([
+    { begin: 0, end: 5, keyword: 'abcde'},
+    { begin: 5, end: 8, keyword: 'abc'}
+  ]);
+});
+
+test('Check Unicode combining characters', () => {
+  const aho = new AhoCorasick(['café', 'cafe']);
+  expect(aho.matchInText('café')).toStrictEqual([
+    { begin: 0, end: 4, keyword: 'café'}
+  ]);
+});
+
+test('Check greedy with alternating patterns', () => {
+  const aho = new AhoCorasick(['aba', 'bab', 'a', 'b']);
+  expect(aho.matchInText('abababa')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'aba'},
+    { begin: 3, end: 6, keyword: 'bab'},
+    { begin: 6, end: 7, keyword: 'a'}
+  ]);
+});
+
+test('Check greedy with keywords that are rotations', () => {
+  const aho = new AhoCorasick(['abc', 'bca', 'cab']);
+  expect(aho.matchInText('abcabc')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'abc'},
+    { begin: 3, end: 6, keyword: 'abc'}
+  ]);
+  expect(aho.matchInText('abcbca')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'abc'},
+    { begin: 3, end: 6, keyword: 'bca'}
+  ]);
+});
+
+test('Check greedy with keywords containing each other non-prefix', () => {
+  const aho = new AhoCorasick(['xabcy', 'abc', 'bcd', 'y']);
+  expect(aho.matchInText('xabcy')).toStrictEqual([
+    { begin: 0, end: 5, keyword: 'xabcy'}
+  ]);
+  expect(aho.matchInText('abcbcd')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'abc'},
+    { begin: 3, end: 6, keyword: 'bcd'}
+  ]);
+});
+
+test('Check whitespace and special characters', () => {
+  const aho = new AhoCorasick(['hello world', ' ', 'world']);
+  expect(aho.matchInText('hello world')).toStrictEqual([
+    { begin: 0, end: 11, keyword: 'hello world'}
+  ]);
+});
