@@ -143,22 +143,25 @@ export class DynamicAhoCorasick extends AhoCorasick {
     super(keywords);
 
     // build invert failure
-    const queue: Trie[] = [];
-    for (const [_, next] of this.root.entries()) {
-      queue.push(next);
-    }
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      const failure = this.failure_link.get(current);
-      if (failure == null) { continue; }
-
-      if (!this.invert_failure_link.has(failure)) {
-        this.invert_failure_link.set(failure, new Set<Trie>());
-      }
-      this.invert_failure_link.get(failure)!.add(current);
-
-      for (const [_, next] of current.entries()) {
+    {
+      let top = 0;
+      const queue: Trie[] = [];
+      for (const [_, next] of this.root.entries()) {
         queue.push(next);
+      }
+      while (top < queue.length) {
+        const current = queue[top++];
+        const failure = this.failure_link.get(current);
+        if (failure == null) { continue; }
+
+        if (!this.invert_failure_link.has(failure)) {
+          this.invert_failure_link.set(failure, new Set<Trie>());
+        }
+        this.invert_failure_link.get(failure)!.add(current);
+
+        for (const [_, next] of current.entries()) {
+          queue.push(next);
+        }
       }
     }
   }
@@ -190,32 +193,38 @@ export class DynamicAhoCorasick extends AhoCorasick {
       if (!this.invert_failure_link.has(current)) {
         this.invert_failure_link.set(current, new Set<Trie>());
       }
-      let queue: Trie[] = [... (this.invert_failure_link.get(parent) ?? [])];
-      while (queue.length > 0) {
-        const before = queue.shift()!;
 
-        if (before.can(ch)) {
-          const invert_failure = before.go(ch)!;
-          this.failure_link.set(invert_failure, current);
-          this.invert_failure_link.get(failure)!.delete(invert_failure);
-          this.invert_failure_link.get(current)!.add(invert_failure);
-          continue;
+      {
+        let top = 0;
+        const queue: Trie[] = [... (this.invert_failure_link.get(parent) ?? [])];
+        while (top < queue.length) {
+          const before = queue[top++]
+
+          if (before.can(ch)) {
+            const invert_failure = before.go(ch)!;
+            this.failure_link.set(invert_failure, current);
+            this.invert_failure_link.get(failure)!.delete(invert_failure);
+            this.invert_failure_link.get(current)!.add(invert_failure);
+            continue;
+          }
+
+          queue.push(... (this.invert_failure_link.get(before) ?? []))
         }
-
-        queue.push(... (this.invert_failure_link.get(before) ?? []))
       }
 
       parent = current;
     }
 
     // propagete added keyword
-    const current = parent;
-    const queue: Trie[] = [current];
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      for (const invert_failure of (this.invert_failure_link.get(current)?.values() ?? [])) {
-        invert_failure.merge(current);
-        queue.push(invert_failure);
+    {
+      let top = 0;
+      const queue: Trie[] = [parent];
+      while (top < queue.length) {
+        const current = queue[top++];
+        for (const invert_failure of (this.invert_failure_link.get(current)?.values() ?? [])) {
+          invert_failure.merge(current);
+          queue.push(invert_failure);
+        }
       }
     }
   }
@@ -229,13 +238,17 @@ export class DynamicAhoCorasick extends AhoCorasick {
     }
     if (!target.contains(keyword)) { return; }
 
+    // traverse invert failure to remove keyword
     target.delete(keyword);
-    const queue: Trie[] = [target];
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      for (const invert_failure of (this.invert_failure_link.get(current)?.values() ?? [])) {
-        invert_failure.delete(keyword);
-        queue.push(invert_failure);
+    {
+      let top = 0;
+      const queue: Trie[] = [target];
+      while (top < queue.length) {
+        const current = queue[top++];
+        for (const invert_failure of (this.invert_failure_link.get(current)?.values() ?? [])) {
+          invert_failure.delete(keyword);
+          queue.push(invert_failure);
+        }
       }
     }
 
@@ -243,7 +256,7 @@ export class DynamicAhoCorasick extends AhoCorasick {
     for (let leaf: Trie | null = target, index: number = keyword.length - 1; leaf != null && leaf.defunct(); leaf = leaf.parent ?? null, index--) {
       leaf.parent?.undef(keyword[index]);
 
-      const failure = this.failure_link.get(leaf)!;
+      const failure = this.failure_link.get(leaf) ?? this.root;
       this.invert_failure_link.get(failure)!.delete(leaf);
       for (const invert_failure of (this.invert_failure_link.get(leaf) ?? [])) {
         this.failure_link.set(invert_failure, failure);
