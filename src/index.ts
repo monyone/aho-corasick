@@ -256,7 +256,9 @@ export class DynamicAhoCorasick extends AhoCorasick {
     for (let leaf: Trie | null = target, index: number = keyword.length - 1; leaf != null && leaf.defunct(); leaf = leaf.parent ?? null, index--) {
       leaf.parent?.undef(keyword[index]);
 
-      const failure = this.failure_link.get(leaf) ?? this.root;
+      const failure = this.failure_link.get(leaf);
+      if (failure == null) { break; } // leaf's failure is empty -> leaf is root so ended
+
       this.invert_failure_link.get(failure)!.delete(leaf);
       for (const invert_failure of (this.invert_failure_link.get(leaf) ?? [])) {
         this.failure_link.set(invert_failure, failure);
