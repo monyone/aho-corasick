@@ -296,3 +296,249 @@ test('Check add and delete combination - complex scenario', () => {
     { begin: 3, end: 6, keyword: 'abc'},
   ]);
 });
+
+test('Check add and delete combination - deep failure link chain', () => {
+  // Create a deep failure link chain scenario
+  const aho = new DynamicAhoCorasick(['aaaa', 'aaa', 'aa', 'a']);
+  expect(aho.matchInText('aaaaa')).toStrictEqual([
+    { begin: 0, end: 1, keyword: 'a'},
+    { begin: 0, end: 2, keyword: 'aa'},
+    { begin: 1, end: 2, keyword: 'a'},
+    { begin: 0, end: 3, keyword: 'aaa'},
+    { begin: 1, end: 3, keyword: 'aa'},
+    { begin: 2, end: 3, keyword: 'a'},
+    { begin: 0, end: 4, keyword: 'aaaa'},
+    { begin: 1, end: 4, keyword: 'aaa'},
+    { begin: 2, end: 4, keyword: 'aa'},
+    { begin: 3, end: 4, keyword: 'a'},
+    { begin: 1, end: 5, keyword: 'aaaa'},
+    { begin: 2, end: 5, keyword: 'aaa'},
+    { begin: 3, end: 5, keyword: 'aa'},
+    { begin: 4, end: 5, keyword: 'a'}
+  ]);
+
+  // Add longer pattern
+  aho.add('aaaaa');
+  expect(aho.matchInText('aaaaa')).toStrictEqual([
+    { begin: 0, end: 1, keyword: 'a'},
+    { begin: 0, end: 2, keyword: 'aa'},
+    { begin: 1, end: 2, keyword: 'a'},
+    { begin: 0, end: 3, keyword: 'aaa'},
+    { begin: 1, end: 3, keyword: 'aa'},
+    { begin: 2, end: 3, keyword: 'a'},
+    { begin: 0, end: 4, keyword: 'aaaa'},
+    { begin: 1, end: 4, keyword: 'aaa'},
+    { begin: 2, end: 4, keyword: 'aa'},
+    { begin: 3, end: 4, keyword: 'a'},
+    { begin: 0, end: 5, keyword: 'aaaaa'},
+    { begin: 1, end: 5, keyword: 'aaaa'},
+    { begin: 2, end: 5, keyword: 'aaa'},
+    { begin: 3, end: 5, keyword: 'aa'},
+    { begin: 4, end: 5, keyword: 'a'}
+  ]);
+
+  // Delete from middle of chain
+  aho.delete('aa');
+  expect(aho.matchInText('aaaaa')).toStrictEqual([
+    { begin: 0, end: 1, keyword: 'a'},
+    { begin: 1, end: 2, keyword: 'a'},
+    { begin: 0, end: 3, keyword: 'aaa'},
+    { begin: 2, end: 3, keyword: 'a'},
+    { begin: 0, end: 4, keyword: 'aaaa'},
+    { begin: 1, end: 4, keyword: 'aaa'},
+    { begin: 3, end: 4, keyword: 'a'},
+    { begin: 0, end: 5, keyword: 'aaaaa'},
+    { begin: 1, end: 5, keyword: 'aaaa'},
+    { begin: 2, end: 5, keyword: 'aaa'},
+    { begin: 4, end: 5, keyword: 'a'}
+  ]);
+
+  // Delete longest pattern
+  aho.delete('aaaaa');
+  expect(aho.matchInText('aaaaa')).toStrictEqual([
+    { begin: 0, end: 1, keyword: 'a'},
+    { begin: 1, end: 2, keyword: 'a'},
+    { begin: 0, end: 3, keyword: 'aaa'},
+    { begin: 2, end: 3, keyword: 'a'},
+    { begin: 0, end: 4, keyword: 'aaaa'},
+    { begin: 1, end: 4, keyword: 'aaa'},
+    { begin: 3, end: 4, keyword: 'a'},
+    { begin: 1, end: 5, keyword: 'aaaa'},
+    { begin: 2, end: 5, keyword: 'aaa'},
+    { begin: 4, end: 5, keyword: 'a'}
+  ]);
+});
+
+test('Check add and delete combination - interleaved patterns', () => {
+  // Patterns that interleave in complex ways
+  const aho = new DynamicAhoCorasick(['abab', 'baba', 'ab', 'ba']);
+  expect(aho.matchInText('abababa')).toStrictEqual([
+    { begin: 0, end: 2, keyword: 'ab'},
+    { begin: 1, end: 3, keyword: 'ba'},
+    { begin: 0, end: 4, keyword: 'abab'},
+    { begin: 2, end: 4, keyword: 'ab'},
+    { begin: 1, end: 5, keyword: 'baba'},
+    { begin: 3, end: 5, keyword: 'ba'},
+    { begin: 2, end: 6, keyword: 'abab'},
+    { begin: 4, end: 6, keyword: 'ab'},
+    { begin: 3, end: 7, keyword: 'baba'},
+    { begin: 5, end: 7, keyword: 'ba'},
+  ]);
+
+  // Add even longer pattern
+  aho.add('ababab');
+  expect(aho.matchInText('abababa')).toStrictEqual([
+    { begin: 0, end: 2, keyword: 'ab'},
+    { begin: 1, end: 3, keyword: 'ba'},
+    { begin: 0, end: 4, keyword: 'abab'},
+    { begin: 2, end: 4, keyword: 'ab'},
+    { begin: 1, end: 5, keyword: 'baba'},
+    { begin: 3, end: 5, keyword: 'ba'},
+    { begin: 0, end: 6, keyword: 'ababab'},
+    { begin: 2, end: 6, keyword: 'abab'},
+    { begin: 4, end: 6, keyword: 'ab'},
+    { begin: 3, end: 7, keyword: 'baba'},
+    { begin: 5, end: 7, keyword: 'ba'}
+  ]);
+
+  // Delete base patterns
+  aho.delete('ab');
+  aho.delete('ba');
+  expect(aho.matchInText('abababa')).toStrictEqual([
+    { begin: 0, end: 4, keyword: 'abab'},
+    { begin: 1, end: 5, keyword: 'baba'},
+    { begin: 0, end: 6, keyword: 'ababab'},
+    { begin: 2, end: 6, keyword: 'abab'},
+    { begin: 3, end: 7, keyword: 'baba'}
+  ]);
+});
+
+test('Check add and delete combination - multiple disjoint trie branches', () => {
+  // Multiple separate trie branches
+  const aho = new DynamicAhoCorasick(['apple', 'application', 'orange', 'banana']);
+  expect(aho.matchInText('apple orange banana application')).toStrictEqual([
+    { begin: 0, end: 5, keyword: 'apple'},
+    { begin: 6, end: 12, keyword: 'orange'},
+    { begin: 13, end: 19, keyword: 'banana'},
+    { begin: 20, end: 31, keyword: 'application'}
+  ]);
+
+  // Add patterns that create new branches
+  aho.add('app');
+  aho.add('ban');
+  aho.add('rang');
+  expect(aho.matchInText('apple orange banana application')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'app'},
+    { begin: 0, end: 5, keyword: 'apple'},
+    { begin: 7, end: 11, keyword: 'rang'},
+    { begin: 6, end: 12, keyword: 'orange'},
+    { begin: 13, end: 16, keyword: 'ban'},
+    { begin: 13, end: 19, keyword: 'banana'},
+    { begin: 20, end: 23, keyword: 'app'},
+    { begin: 20, end: 31, keyword: 'application'}
+  ]);
+
+  // Delete from different branches
+  aho.delete('orange');
+  aho.delete('banana');
+  expect(aho.matchInText('apple orange banana application')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'app'},
+    { begin: 0, end: 5, keyword: 'apple'},
+    { begin: 7, end: 11, keyword: 'rang'},
+    { begin: 13, end: 16, keyword: 'ban'},
+    { begin: 20, end: 23, keyword: 'app'},
+    { begin: 20, end: 31, keyword: 'application'}
+  ]);
+
+  // Add patterns back with different structure
+  aho.add('range');
+  aho.add('anana');
+  expect(aho.matchInText('apple orange banana application')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'app'},
+    { begin: 0, end: 5, keyword: 'apple'},
+    { begin: 7, end: 11, keyword: 'rang'},
+    { begin: 7, end: 12, keyword: 'range'},
+    { begin: 13, end: 16, keyword: 'ban'},
+    { begin: 14, end: 19, keyword: 'anana'},
+    { begin: 20, end: 23, keyword: 'app'},
+    { begin: 20, end: 31, keyword: 'application'}
+  ]);
+});
+
+test('Check add and delete combination - stress test with many operations', () => {
+  const aho = new DynamicAhoCorasick([]);
+
+  // Build up gradually
+  const words = ['the', 'then', 'there', 'these', 'this', 'that', 'those', 'them', 'their'];
+  for (const word of words) {
+    aho.add(word);
+  }
+
+  expect(aho.matchInText('these are their things that they use there')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'the'},
+    { begin: 0, end: 5, keyword: 'these'},
+    { begin: 10, end: 13, keyword: 'the'},
+    { begin: 10, end: 15, keyword: 'their'},
+    { begin: 23, end: 27, keyword: 'that'},
+    { begin: 28, end: 31, keyword: 'the'},
+    { begin: 37, end: 40, keyword: 'the'},
+    { begin: 37, end: 42, keyword: 'there'},
+  ]);
+
+  // Remove some patterns
+  aho.delete('these');
+  aho.delete('their');
+  aho.delete('that');
+
+  expect(aho.matchInText('these are their things that they use there')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'the'},
+    { begin: 10, end: 13, keyword: 'the'},
+    { begin: 28, end: 31, keyword: 'the'},
+    { begin: 37, end: 40, keyword: 'the'},
+    { begin: 37, end: 42, keyword: 'there'},
+  ]);
+
+  // Add new patterns
+  aho.add('are');
+  aho.add('use');
+  aho.add('they');
+
+  expect(aho.matchInText('these are their things that they use there')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'the'},
+    { begin: 6, end: 9, keyword: 'are'},
+    { begin: 10, end: 13, keyword: 'the'},
+    { begin: 28, end: 31, keyword: 'the'},
+    { begin: 28, end: 32, keyword: 'they'},
+    { begin: 33, end: 36, keyword: 'use'},
+    { begin: 37, end: 40, keyword: 'the'},
+    { begin: 37, end: 42, keyword: 'there'},
+  ]);
+
+  // Massive delete and re-add
+  for (const word of ['the', 'then', 'there', 'this', 'those', 'them']) {
+    aho.delete(word);
+  }
+
+  expect(aho.matchInText('these are their things that they use there')).toStrictEqual([
+    { begin: 6, end: 9, keyword: 'are'},
+    { begin: 28, end: 32, keyword: 'they'},
+    { begin: 33, end: 36, keyword: 'use'}
+  ]);
+
+  // Re-add in different order
+  aho.add('there');
+  aho.add('the');
+  aho.add('this');
+
+  expect(aho.matchInText('these are their things that they use there')).toStrictEqual([
+    { begin: 0, end: 3, keyword: 'the'},
+    { begin: 6, end: 9, keyword: 'are'},
+    { begin: 10, end: 13, keyword: 'the'},
+    { begin: 28, end: 31, keyword: 'the'},
+    { begin: 28, end: 32, keyword: 'they'},
+    { begin: 33, end: 36, keyword: 'use'},
+    { begin: 37, end: 40, keyword: 'the'},
+    { begin: 37, end: 42, keyword: 'there'},
+
+  ]);
+});
