@@ -45,6 +45,27 @@ const ahocorasick = new AhoCorasick(keywords);
 const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matchInText(text);
 ```
 
+### Greedy (Leftmost-Longest) Streaming Variant
+
+#### With Node.js Stream API
+```ts
+import { createReadStream, createWriteStream } from 'node:fs';
+import { Readable } from 'node:stream';
+
+const ahocorasick = new AhoCorasick(keywords);
+const input = createReadStream('input.txt', { encoding: 'utf-8' });
+const output = createWriteStream('output.txt', { encoding: 'utf-8' });
+const readable = Readable.from(ahocorasick.replaceAsync(input, (key) => '#'.repeat(key.length)));
+readable.pipe(output);
+```
+
+#### With fetch
+```ts
+const ahocorasick = new AhoCorasick(['example', 'Example']);
+const input = (await fetch('http://example.com')).body!.pipeThrough(new TextDecoderStream());
+const readable = ReadableStream.from(ahocorasick.replaceAsync(stream, (key) => '#'.repeat(key.length)));
+```
+
 
 ### More Faster Search (Double Array)
 
