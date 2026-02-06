@@ -186,11 +186,27 @@ export class AhoCorasick {
     let comfirmed_index = 0;
     let state: Trie = this.root;
     for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (!state.can(ch)) { // use failure
+        const old_depth = state.depth;
+        while (state !== this.root && !(state.can(ch))) {
+          state = this.failure_link.get(state)!;
+        }
+        const new_depth = state.depth;
+        comfirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
+        while (!deque.empty()) {
+          const first = deque.peekFirst()!;
+          if (first.end > comfirmed_index) { break; }
+          yield deque.pollFirst()!;
+        }
+      }
+      state = state.go(ch) ?? this.root;
+
       if (!state.empty()) {
         const keyword = state.value()!;
         const length = keyword.length;
-        const begin = i - length;
-        const end = i;
+        const begin = (i + 1) - length;
+        const end = (i + 1);
 
         while (true) {
           if (deque.empty()) {
@@ -209,47 +225,8 @@ export class AhoCorasick {
           }
         }
       }
-
-      const ch = text[i];
-      if (!state.can(ch)) { // use failure
-        const old_depth = state.depth;
-        while (state !== this.root && !(state.can(ch))) {
-          state = this.failure_link.get(state)!;
-        }
-        const new_depth = state.depth;
-        comfirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
-        while (!deque.empty()) {
-          const first = deque.peekFirst()!;
-          if (first.end > comfirmed_index) { break; }
-          yield deque.pollFirst()!;
-        }
-      }
-      state = state.go(ch) ?? this.root;
     }
 
-    if (!state.empty()) {
-      const keyword = state.value()!;
-      const length = keyword.length;
-      const begin = text.length - length;
-      const end = text.length;
-
-      while (true) {
-        if (deque.empty()) {
-          deque.addLast({ begin, end, keyword });
-          break;
-        }
-
-        const last = deque.peekLast()!;
-        if (last.end <= begin) {
-          deque.addLast({ begin, end, keyword });
-          break;
-        } else if (begin > last.begin) {
-          break;
-        } else {
-          deque.pollLast();
-        }
-      }
-    }
     while (!deque.empty()) {
       yield deque.pollFirst()!;
     }
