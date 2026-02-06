@@ -84,6 +84,14 @@ class Deque<T> {
     if (this.empty()) { return null; }
     return this.poll(this.end.prev!);
   }
+
+  *[Symbol.iterator]() {
+    let node = this.begin.next!;
+    while (node !== this.end) {
+      yield node.elem!;
+      node = node.next!;
+    }
+  }
 }
 
 class Trie {
@@ -231,4 +239,187 @@ export class AhoCorasick {
       yield deque.pollFirst()!;
     }
   }
+
+  public *replaceSync(iterable: Iterable<string>, replacer: (detect: string) => string): Iterable<string> {
+    const deque = new Deque<{ begin: number, end: number, keyword: string }>();
+
+    let comfirmed_index = 0;
+    let remain_text = '';
+    let remain_offset = 0;
+    let output_begin = 0;
+    let state: Trie = this.root;
+
+    for (const text of iterable) {
+      remain_text += text;
+
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (!state.can(ch)) { // use failure
+          const old_depth = state.depth;
+          while (state !== this.root && !(state.can(ch))) {
+            state = this.failure_link.get(state)!;
+          }
+          const new_depth = state.depth;
+          comfirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
+          while (!deque.empty()) {
+            const first = deque.peekFirst()!;
+            if (first.end > comfirmed_index) { break; }
+
+            if (output_begin < first.begin) {
+              yield remain_text.slice(output_begin, first.begin);
+            }
+            yield replacer(remain_text.slice(first.begin, first.end));
+            output_begin = first.end;
+
+            deque.pollFirst()!;
+          }
+        }
+        state = state.go(ch) ?? this.root;
+
+        if (!state.empty()) {
+          const keyword = state.value()!;
+          const length = keyword.length;
+          const begin = remain_offset + (i + 1) - length;
+          const end = remain_offset + (i + 1);
+
+          while (true) {
+            if (deque.empty()) {
+              deque.addLast({ begin, end, keyword });
+              break;
+            }
+
+            const last = deque.peekLast()!;
+            if (last.end <= begin) {
+              deque.addLast({ begin, end, keyword });
+              break;
+            } else if (begin > last.begin) {
+              break;
+            } else {
+              deque.pollLast();
+            }
+          }
+        }
+      }
+
+      if (output_begin < comfirmed_index) {
+        yield remain_text.slice(output_begin, comfirmed_index);
+      }
+      for (const elem of deque) {
+        elem.begin -= comfirmed_index;
+        elem.end -= comfirmed_index;
+      }
+      remain_text = remain_text.slice(comfirmed_index);
+      remain_offset = remain_text.length;
+      output_begin = 0;
+      comfirmed_index = 0;
+    }
+
+    while (!deque.empty()) {
+      const first = deque.peekFirst()!;
+
+      if (output_begin < first.begin) {
+        yield remain_text.slice(output_begin, first.begin);
+      }
+      yield replacer(remain_text.slice(first.begin, first.end));
+      output_begin = first.end;
+
+      deque.pollFirst()!;
+    }
+
+    if (output_begin < remain_text.length) {
+      yield remain_text.slice(output_begin, remain_text.length);
+    }
+  }
+
+  public async *replaceAsync(iterable: AsyncIterable<string>, replacer: (detect: string) => string): AsyncIterable<string> {
+    const deque = new Deque<{ begin: number, end: number, keyword: string }>();
+
+    let comfirmed_index = 0;
+    let remain_text = '';
+    let remain_offset = 0;
+    let output_begin = 0;
+    let state: Trie = this.root;
+
+    for await (const text of iterable) {
+      remain_text += text;
+
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (!state.can(ch)) { // use failure
+          const old_depth = state.depth;
+          while (state !== this.root && !(state.can(ch))) {
+            state = this.failure_link.get(state)!;
+          }
+          const new_depth = state.depth;
+          comfirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
+          while (!deque.empty()) {
+            const first = deque.peekFirst()!;
+            if (first.end > comfirmed_index) { break; }
+
+            if (output_begin < first.begin) {
+              yield remain_text.slice(output_begin, first.begin);
+            }
+            yield replacer(remain_text.slice(first.begin, first.end));
+            output_begin = first.end;
+
+            deque.pollFirst()!;
+          }
+        }
+        state = state.go(ch) ?? this.root;
+
+        if (!state.empty()) {
+          const keyword = state.value()!;
+          const length = keyword.length;
+          const begin = remain_offset + (i + 1) - length;
+          const end = remain_offset + (i + 1);
+
+          while (true) {
+            if (deque.empty()) {
+              deque.addLast({ begin, end, keyword });
+              break;
+            }
+
+            const last = deque.peekLast()!;
+            if (last.end <= begin) {
+              deque.addLast({ begin, end, keyword });
+              break;
+            } else if (begin > last.begin) {
+              break;
+            } else {
+              deque.pollLast();
+            }
+          }
+        }
+      }
+
+      if (output_begin < comfirmed_index) {
+        yield remain_text.slice(output_begin, comfirmed_index);
+      }
+      for (const elem of deque) {
+        elem.begin -= comfirmed_index;
+        elem.end -= comfirmed_index;
+      }
+      remain_text = remain_text.slice(comfirmed_index);
+      remain_offset = remain_text.length;
+      output_begin = 0;
+      comfirmed_index = 0;
+    }
+
+    while (!deque.empty()) {
+      const first = deque.peekFirst()!;
+
+      if (output_begin < first.begin) {
+        yield remain_text.slice(output_begin, first.begin);
+      }
+      yield replacer(remain_text.slice(first.begin, first.end));
+      output_begin = first.end;
+
+      deque.pollFirst()!;
+    }
+
+    if (output_begin < remain_text.length) {
+      yield remain_text.slice(output_begin, remain_text.length);
+    }
+  }
 }
+
