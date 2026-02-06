@@ -14,7 +14,8 @@
   "exports": {
     ".": "./dist/index.js",
     "./fast": "./dist/fast.js",
-    "./greedy": "./dist/greedy.js"
+    "./greedy": "./dist/greedy.js",
+    "./stream": "./dist/stream.js"
   },
   "license": "MIT",
   "files": [
