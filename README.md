@@ -49,6 +49,7 @@ const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matc
 
 #### With Node.js Stream API
 ```ts
+import { AhoCorasick } from '@monyone/aho-corasick/stream';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { Readable } from 'node:stream';
 
@@ -61,6 +62,8 @@ readable.pipe(output);
 
 #### With fetch
 ```ts
+import { AhoCorasick } from '@monyone/aho-corasick/stream';
+
 const ahocorasick = new AhoCorasick(['example', 'Example']);
 const input = (await fetch('http://example.com')).body!.pipeThrough(new TextDecoderStream());
 const readable = ReadableStream.from(ahocorasick.replaceAsync(stream, (key) => '#'.repeat(key.length)));
