@@ -1,6 +1,6 @@
 {
   "name": "@monyone/aho-corasick",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "author": "monyone <monyone.teihen@gmail.com>",
   "description": "Aho Corasick implementation written in TypeScript",
   "keywords": [
@@ -72,9 +72,8 @@
     "tsdown": "^0.21.5",
     "typescript": "^6.0.2",
     "vite": "^8.0.3",
-    "vitest": "^4.1.2"
-  },
-  "optionalDependencies": {
+    "vitest": "^4.1.2",
+
     "@tanishiking/aho-corasick": "^0.0.1",
     "@types/ahocorasick": "^1.0.0",
     "@types/chance": "^1.1.6",
