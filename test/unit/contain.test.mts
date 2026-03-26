@@ -1,4 +1,6 @@
-import { AhoCorasick } from '../../src'
+import { test, expect } from 'vitest';
+
+import { AhoCorasick } from '../../src/index.mts'
 
 test("Check prefix contain in hasKeywordInText", () => {
   const input = ['abc', 'bde'];

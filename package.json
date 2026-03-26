@@ -10,12 +10,50 @@
     "type": "git",
     "url": "https://github.com/monyone/aho-corasick"
   },
-  "main": "dist/index.js",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
   "exports": {
-    ".": "./dist/index.js",
-    "./fast": "./dist/fast.js",
-    "./greedy": "./dist/greedy.js",
-    "./stream": "./dist/stream.js"
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./fast": {
+      "import": {
+        "types": "./dist/fast.d.mts",
+        "default": "./dist/fast.mjs"
+      },
+      "require": {
+        "types": "./dist/fast.d.cts",
+        "default": "./dist/fast.cjs"
+      }
+    },
+    "./greedy": {
+      "import": {
+        "types": "./dist/greedy.d.mts",
+        "default": "./dist/greedy.mjs"
+      },
+      "require": {
+        "types": "./dist/greedy.d.cts",
+        "default": "./dist/greedy.cjs"
+      }
+    },
+    "./stream": {
+      "import": {
+        "types": "./dist/stream.d.mts",
+        "default": "./dist/stream.mjs"
+      },
+      "require": {
+        "types": "./dist/stream.d.cts",
+        "default": "./dist/stream.cjs"
+      }
+    }
   },
   "license": "MIT",
   "files": [
@@ -25,23 +63,26 @@
     "tsconfig.json"
   ],
   "scripts": {
-    "build": "tsc",
-    "perf": "ts-node --files ./perf/index.ts"
+    "build": "tsdown",
+    "tsc": "tsc",
+    "test": "vitest",
+    "perf": "node ./perf/index.mts"
   },
   "devDependencies": {
+    "tsdown": "^0.21.5",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3",
+    "vitest": "^4.1.2"
+  },
+  "optionalDependencies": {
     "@tanishiking/aho-corasick": "^0.0.1",
     "@types/ahocorasick": "^1.0.0",
     "@types/chance": "^1.1.6",
-    "@types/jest": "~29",
     "ahocorasick": "^1.0.2",
     "chance": "^1.1.11",
     "hoshino": "^2.1.0",
-    "jest": "~29",
     "modern-ahocorasick": "^1.0.1",
-    "ts-jest": "~29",
-    "ts-node": "^10.9.2",
     "tynisearch": "^1.0.11",
-    "typescript": "~5.4",
     "word-match-helper": "^2.1.0"
   }
 }

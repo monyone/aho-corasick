@@ -1,4 +1,6 @@
-import { AhoCorasick } from '../../src/stream'
+import { test, expect, describe } from 'vitest';
+
+import { AhoCorasick } from '../../src/stream.mts'
 
 describe('replaceSync', () => {
   test('Basic replacement with single keyword', () => {

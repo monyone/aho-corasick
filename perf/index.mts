@@ -1,10 +1,12 @@
 import { Chance } from 'chance';
-import { AhoCorasick as AhoCorasickMonyone, DynamicAhoCorasick as DynamicAhoCorasickMonyone } from '../src';
+import { AhoCorasick as AhoCorasickMonyone, DynamicAhoCorasick as DynamicAhoCorasickMonyone } from '../src/index.mts';
 import { Trie as AhoCorasickTanishiking } from "@tanishiking/aho-corasick";
 import AhoCorasickBrunorb from 'ahocorasick';
-import AhoCorasickSonofmagic from 'modern-ahocorasick'
+import AhoCorasickSonofmagic_ from 'modern-ahocorasick'
+const AhoCorasickSonofmagic = AhoCorasickSonofmagic_ as unknown as typeof AhoCorasickSonofmagic_["default"];
 import { TyniSearch as AhoCorasickPrrada } from 'tynisearch'
-import { WordMatcher as AhoCorasickMichaelhan } from 'word-match-helper'
+import AhoCorasickMichaelhan_ from 'word-match-helper'
+const { WordMatcher: AhoCorasickMichaelhan } = AhoCorasickMichaelhan_;
 import { findAllMatchSync as AhoCorasickFz6n } from 'hoshino'
 
 const generate = (wordCount: number, sentenceCount: number): [string[], string] => {

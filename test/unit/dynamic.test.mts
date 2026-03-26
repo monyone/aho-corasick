@@ -1,4 +1,6 @@
-import { DynamicAhoCorasick } from '../../src'
+import { test, expect } from 'vitest';
+
+import { DynamicAhoCorasick } from '../../src/index.mts'
 
 test("Check prefix contain in matchInText", () => {
   const aho = new DynamicAhoCorasick(['abc', 'bde']);
