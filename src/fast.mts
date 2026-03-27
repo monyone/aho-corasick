@@ -56,9 +56,10 @@ class DoubleArray {
 
     // construct Double Array
     {
+      let top = 0;
       const queue: [number, Trie][] = [[0, root]];
-      while (queue.length > 0) {
-        const [node, trie] = queue.shift()!;
+      while (top < queue.length) {
+        const [node, trie] = queue[top++];
         const leafs = Array.from(trie.keys());
         const max_leaf = leafs.reduce((a, b) => Math.max(a, b), 0);
 
@@ -103,9 +104,10 @@ class DoubleArray {
     }
     // Build Failure
     {
+      let top = 0;
       const queue: [number, Trie][] = [[0, root]];
-      while (queue.length > 0) {
-        const [parent, trie] = queue.shift()!;
+      while (top < queue.length) {
+        const [parent, trie] = queue[top++]!;
         const leafs = Array.from(trie.keys());
 
         for (const leaf of leafs) {
