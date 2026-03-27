@@ -95,8 +95,8 @@ class DoubleArray {
     {
       for (const keyword of keywords) {
         let node = 0;
-        for (const character of keyword) {
-          node += this.base[node] + this.code.get(character)!
+        for (let i = 0; i < keyword.length; i++) {
+          node += this.base[node] + this.code.get(keyword[i])!;
         }
         this.keywords[node].push([keyword, keyword.length]);
       }
@@ -114,7 +114,7 @@ class DoubleArray {
           while (failure >= 0 && this.check[(failure + this.base[failure] + leaf)] !== failure) {
             failure = this.failure[failure];
           }
-          const next = failure < 0 ? -1 : (failure + this.base[failure] + leaf)
+          const next = failure < 0 ? -1 : (failure + this.base[failure] + leaf);
           this.failure[node] = next < 0 ? 0 : this.check[next] !== failure ? 0 : next;
           for (const keyword of this.keywords[this.failure[node]]) {
             this.keywords[node].push(keyword);
@@ -152,9 +152,9 @@ export class AhoCorasick {
 
   public hasKeywordInText(text: string): boolean {
     let node = 0;
-    for (const ch of text) {
+    for (let i = 0; i < text.length; i++) {
       if (this.trie.query(node).length > 0) { return true; }
-      node = this.trie.go(node, ch);
+      node = this.trie.go(node, text[i]);
     }
 
     return this.trie.query(node).length > 0;
@@ -165,20 +165,14 @@ export class AhoCorasick {
 
     let node = 0;
     for (let i = 0; i < text.length; i++) {
-      for (const [keyword, length] of this.trie.query(node)) {
-        const begin = i - length;
-        const end = i;
-        result.push({ begin, end, keyword });
-      }
-
       const ch = text[i];
       node = this.trie.go(node, ch);
-    }
 
-    for (const [keyword, length] of this.trie.query(node)) {
-      const begin = text.length - length;
-      const end = text.length;
-      result.push({ begin, end, keyword });
+      for (const [keyword, length] of this.trie.query(node)) {
+        const begin = (i + 1) - length;
+        const end = (i + 1);
+        result.push({ begin, end, keyword });
+      }
     }
 
     return result;
