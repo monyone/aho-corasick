@@ -25,10 +25,12 @@ class Trie {
 
 class DoubleArray {
   private code: Map<string, number>;
-  private base: number[] = [0];
-  private check: number[] = [-1];
-  private failure: number[] = [-1];
-  private keywords: [string, number][][] = [[]];
+  private head = 1;
+  private tail = 1;
+  private base: number[] = [0, -2];
+  private check: number[] = [0, -2];
+  private failure: number[] = [-1, -1];
+  private keywords: [string, number][][] = [[], []];
 
   public constructor(keywords: string[]) {
     const set = new Set<string>();
@@ -63,28 +65,50 @@ class DoubleArray {
         const leafs = Array.from(trie.keys());
         const max_leaf = leafs.reduce((a, b) => Math.max(a, b), 0);
 
-        let offset = node;
-        while (offset < this.check.length && this.check[offset] >= 0) { offset++; }
+        let offset = this.head;
         LOOP:
         while (true) {
           for (const leaf of leafs) {
             const next = offset + leaf;
             if (next < this.check.length && this.check[next] >= 0) {
-              offset = next + 1;
+              // we must keep empty node in last element, loop must be finite
+              offset = -(this.check[offset] + 1);
               continue LOOP;
             }
           }
 
           break;
         }
+
+        // register node
         this.base[node] = offset - node;
+        // reserve node
+        const max = offset + max_leaf + 1 /* keep empty node */;
+        for (let i = this.base.length; i <= max; i++) {
+          this.check.push(-(this.head + 1)); // next
+          this.base.push(-(this.tail + 1)); // prev
 
-        const max = offset + max_leaf;
-        while (this.base.length <= max) { this.base.push(0); }
-        while (this.check.length <= max) { this.check.push(-1); }
-        while (this.keywords.length <= max) { this.keywords.push([]); }
-        while (this.failure.length <= max) { this.failure.push(-1); }
+          this.check[this.tail] = -(i + 1);
+          this.tail = i;
+          this.base[this.head] = -(this.tail + 1);
 
+          this.keywords.push([]);
+          this.failure.push(-1);
+        }
+        // use child element
+        for (const leaf of leafs) {
+          const next = offset + leaf;
+          const free_next = -(this.check[next] + 1);
+          const free_prev = -(this.base[next] + 1);
+
+          if (this.head === next) { this.head = free_next; }
+          if (this.tail === next) { this.tail = free_prev; }
+
+          this.base[free_next] = this.base[next];
+          this.check[free_prev] = this.check[next];
+        }
+
+        // BFS
         for (const leaf of leafs) {
           const next = offset + leaf;
           this.check[next] = node;
