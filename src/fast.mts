@@ -30,7 +30,7 @@ class DoubleArray {
   private base: number[] = [0, -2];
   private check: number[] = [0, -2];
   private failure: number[] = [-1, -1];
-  private keywords: [string, number][][] = [[], []];
+  private keywords: string[][] = [[], []];
 
   public constructor(keywords: string[]) {
     const set = new Set<string>();
@@ -123,7 +123,7 @@ class DoubleArray {
         for (let i = 0; i < keyword.length; i++) {
           node += this.base[node] + this.code.get(keyword[i])!;
         }
-        this.keywords[node].push([keyword, keyword.length]);
+        this.keywords[node].push(keyword);
       }
     }
     // Build Failure
@@ -164,7 +164,7 @@ class DoubleArray {
     return Math.max(node, 0);
   }
 
-  public query(node: number): [string, number][] {
+  public query(node: number): string[] {
     return this.keywords[node];
   }
 }
@@ -194,8 +194,8 @@ export class AhoCorasick {
       const ch = text[i];
       node = this.trie.go(node, ch);
 
-      for (const [keyword, length] of this.trie.query(node)) {
-        const begin = (i + 1) - length;
+      for (const keyword of this.trie.query(node)) {
+        const begin = (i + 1) - keyword.length;
         const end = (i + 1);
         result.push({ begin, end, keyword });
       }
