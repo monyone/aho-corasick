@@ -95,11 +95,19 @@ export class AhoCorasick {
 
     let state: Trie = this.root;
     for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (!state.can(ch)) { // use failure
+        while (state !== this.root && !(state.can(ch))) {
+          state = this.failure_link.get(state)!;
+        }
+      }
+      state = state.go(ch) ?? this.root;
+
       if (!state.empty()) {
         const keyword = state.value()!;
         const length = keyword.length;
-        const begin = i - length;
-        const end = i;
+        const begin = (i + 1) - length;
+        const end = (i + 1);
 
         while (true) {
           if (candidates.length === 0) {
@@ -116,38 +124,6 @@ export class AhoCorasick {
           } else {
             candidates.pop();
           }
-        }
-      }
-
-      const ch = text[i];
-      if (!state.can(ch)) { // use failure
-        while (state !== this.root && !(state.can(ch))) {
-          state = this.failure_link.get(state)!;
-        }
-      }
-      state = state.go(ch) ?? this.root;
-    }
-
-    if (!state.empty()) {
-      const keyword = state.value()!;
-      const length = keyword.length;
-      const begin = text.length - length;
-      const end = text.length;
-
-      while (true) {
-        if (candidates.length === 0) {
-          candidates.push({ begin, end, keyword })
-          break;
-        }
-
-        const stack = candidates.length - 1;
-        if (candidates[candidates.length - 1].end <= begin) {
-          candidates.push({ begin, end, keyword });
-          break;
-        } else if (begin > candidates[stack].begin) {
-          break;
-        } else {
-          candidates.pop();
         }
       }
     }
