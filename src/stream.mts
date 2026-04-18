@@ -94,6 +94,8 @@ class Deque<T> {
   }
 }
 
+type Replacer = (detect: string) => string;
+
 class Trie {
   public readonly parent: Trie | null = null;
   public readonly depth: number;
@@ -191,7 +193,7 @@ export class AhoCorasick {
   public *matchInText(text: string): Iterable<{ begin: number, end: number, keyword: string }> {
     const deque = new Deque<{ begin: number, end: number, keyword: string }>();
 
-    let comfirmed_index = 0;
+    let confirmed_index = 0;
     let state: Trie = this.root;
     for (let i = 0; i < text.length; i++) {
       const ch = text[i];
@@ -201,10 +203,10 @@ export class AhoCorasick {
           state = this.failure_link.get(state)!;
         }
         const new_depth = state.depth;
-        comfirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
+        confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
         while (!deque.empty()) {
           const first = deque.peekFirst()!;
-          if (first.end > comfirmed_index) { break; }
+          if (first.end > confirmed_index) { break; }
           yield deque.pollFirst()!;
         }
       }
@@ -240,186 +242,118 @@ export class AhoCorasick {
     }
   }
 
-  public *replaceSync(iterable: Iterable<string>, replacer: (detect: string) => string): Iterable<string> {
-    const deque = new Deque<{ begin: number, end: number, keyword: string }>();
-
-    let comfirmed_index = 0;
-    let remain_text = '';
-    let remain_offset = 0;
+  private *replaceProcessText(trie: Trie, deque: Deque<{ begin: number, end: number, keyword: string }>, remain_text: string, remain_offset: number, replacer: Replacer): Generator<string, [trie: Trie, remain_text: string], unknown> {
+    let state = trie;
+    let confirmed_index = 0;
     let output_begin = 0;
-    let state: Trie = this.root;
 
-    for (const text of iterable) {
-      remain_text += text;
-
-      for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (!state.can(ch)) { // use failure
-          const old_depth = state.depth;
-          while (state !== this.root && !(state.can(ch))) {
-            state = this.failure_link.get(state)!;
-          }
-          const new_depth = state.depth;
-          comfirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
-          while (!deque.empty()) {
-            const first = deque.peekFirst()!;
-            if (first.end > comfirmed_index) { break; }
-
-            if (output_begin < first.begin) {
-              yield remain_text.slice(output_begin, first.begin);
-            }
-            yield replacer(remain_text.slice(first.begin, first.end));
-            output_begin = first.end;
-
-            deque.pollFirst()!;
-          }
+    for (let i = remain_offset; i < remain_text.length; i++) {
+      const ch = remain_text[i];
+      if (!state.can(ch)) { // use failure
+        const old_depth = state.depth;
+        while (state !== this.root && !(state.can(ch))) {
+          state = this.failure_link.get(state)!;
         }
-        state = state.go(ch) ?? this.root;
+        const new_depth = state.depth;
+        confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
+        while (!deque.empty()) {
+          const first = deque.peekFirst()!;
+          if (first.end > confirmed_index) { break; }
 
-        if (!state.empty()) {
-          const keyword = state.value()!;
-          const length = keyword.length;
-          const begin = remain_offset + (i + 1) - length;
-          const end = remain_offset + (i + 1);
+          if (output_begin < first.begin) {
+            yield remain_text.slice(output_begin, first.begin);
+          }
+          yield replacer(remain_text.slice(first.begin, first.end));
+          output_begin = first.end;
 
-          while (true) {
-            if (deque.empty()) {
-              deque.addLast({ begin, end, keyword });
-              break;
-            }
+          deque.pollFirst()!;
+        }
+      }
+      state = state.go(ch) ?? this.root;
 
-            const last = deque.peekLast()!;
-            if (last.end <= begin) {
-              deque.addLast({ begin, end, keyword });
-              break;
-            } else if (begin > last.begin) {
-              break;
-            } else {
-              deque.pollLast();
-            }
+      if (!state.empty()) {
+        const keyword = state.value()!;
+        const length = keyword.length;
+        const begin = (i + 1) - length;
+        const end = (i + 1);
+
+        while (true) {
+          if (deque.empty()) {
+            deque.addLast({ begin, end, keyword });
+            break;
+          }
+
+          const last = deque.peekLast()!;
+          if (last.end <= begin) {
+            deque.addLast({ begin, end, keyword });
+            break;
+          } else if (begin > last.begin) {
+            break;
+          } else {
+            deque.pollLast();
           }
         }
       }
-
-      if (output_begin < comfirmed_index) {
-        yield remain_text.slice(output_begin, comfirmed_index);
-      }
-      for (const elem of deque) {
-        elem.begin -= comfirmed_index;
-        elem.end -= comfirmed_index;
-      }
-      remain_text = remain_text.slice(comfirmed_index);
-      remain_offset = remain_text.length;
-      output_begin = 0;
-      comfirmed_index = 0;
     }
 
+    if (output_begin < confirmed_index) {
+      yield remain_text.slice(output_begin, confirmed_index);
+    }
+    for (const elem of deque) {
+      elem.begin -= confirmed_index;
+      elem.end -= confirmed_index;
+    }
+    remain_text = remain_text.slice(confirmed_index);
+
+    return [state, remain_text];
+  }
+  private *replaceCleanupText(deque: Deque<{ begin: number, end: number, keyword: string }>, text: string, replacer: Replacer): Iterable<string> {
+    let output_begin = 0;
     while (!deque.empty()) {
       const first = deque.peekFirst()!;
 
       if (output_begin < first.begin) {
-        yield remain_text.slice(output_begin, first.begin);
+        yield text.slice(output_begin, first.begin);
       }
-      yield replacer(remain_text.slice(first.begin, first.end));
+      yield replacer(text.slice(first.begin, first.end));
       output_begin = first.end;
 
       deque.pollFirst()!;
     }
 
-    if (output_begin < remain_text.length) {
-      yield remain_text.slice(output_begin, remain_text.length);
+    if (output_begin < text.length) {
+      yield text.slice(output_begin, text.length);
     }
   }
 
-  public async *replaceAsync(iterable: AsyncIterable<string>, replacer: (detect: string) => string): AsyncIterable<string> {
+  public *replaceSync(iterable: Iterable<string>, replacer: Replacer): Iterable<string> {
     const deque = new Deque<{ begin: number, end: number, keyword: string }>();
 
-    let comfirmed_index = 0;
+    let state: Trie = this.root;
     let remain_text = '';
     let remain_offset = 0;
-    let output_begin = 0;
+
+    for (const text of iterable) {
+      remain_text += text;
+      ([state, remain_text] = yield* this.replaceProcessText(state, deque, remain_text, remain_offset, replacer));
+      remain_offset = remain_text.length;
+    }
+    yield* this.replaceCleanupText(deque, remain_text, replacer);
+  }
+
+  public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer): AsyncIterable<string> {
+    const deque = new Deque<{ begin: number, end: number, keyword: string }>();
+
     let state: Trie = this.root;
+    let remain_text = '';
+    let remain_offset = 0;
 
     for await (const text of iterable) {
       remain_text += text;
-
-      for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (!state.can(ch)) { // use failure
-          const old_depth = state.depth;
-          while (state !== this.root && !(state.can(ch))) {
-            state = this.failure_link.get(state)!;
-          }
-          const new_depth = state.depth;
-          comfirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
-          while (!deque.empty()) {
-            const first = deque.peekFirst()!;
-            if (first.end > comfirmed_index) { break; }
-
-            if (output_begin < first.begin) {
-              yield remain_text.slice(output_begin, first.begin);
-            }
-            yield replacer(remain_text.slice(first.begin, first.end));
-            output_begin = first.end;
-
-            deque.pollFirst()!;
-          }
-        }
-        state = state.go(ch) ?? this.root;
-
-        if (!state.empty()) {
-          const keyword = state.value()!;
-          const length = keyword.length;
-          const begin = remain_offset + (i + 1) - length;
-          const end = remain_offset + (i + 1);
-
-          while (true) {
-            if (deque.empty()) {
-              deque.addLast({ begin, end, keyword });
-              break;
-            }
-
-            const last = deque.peekLast()!;
-            if (last.end <= begin) {
-              deque.addLast({ begin, end, keyword });
-              break;
-            } else if (begin > last.begin) {
-              break;
-            } else {
-              deque.pollLast();
-            }
-          }
-        }
-      }
-
-      if (output_begin < comfirmed_index) {
-        yield remain_text.slice(output_begin, comfirmed_index);
-      }
-      for (const elem of deque) {
-        elem.begin -= comfirmed_index;
-        elem.end -= comfirmed_index;
-      }
-      remain_text = remain_text.slice(comfirmed_index);
+      ([state, remain_text] = yield* this.replaceProcessText(state, deque, remain_text, remain_offset, replacer));
       remain_offset = remain_text.length;
-      output_begin = 0;
-      comfirmed_index = 0;
     }
-
-    while (!deque.empty()) {
-      const first = deque.peekFirst()!;
-
-      if (output_begin < first.begin) {
-        yield remain_text.slice(output_begin, first.begin);
-      }
-      yield replacer(remain_text.slice(first.begin, first.end));
-      output_begin = first.end;
-
-      deque.pollFirst()!;
-    }
-
-    if (output_begin < remain_text.length) {
-      yield remain_text.slice(output_begin, remain_text.length);
-    }
+    yield* this.replaceCleanupText(deque, remain_text, replacer);
   }
 }
 
