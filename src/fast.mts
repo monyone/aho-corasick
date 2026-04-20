@@ -30,7 +30,7 @@ class DoubleArray {
   private base: number[] = [0, -2];
   private check: number[] = [0, -2];
   private failure: number[] = [-1, -1];
-  private keywords: string[][] = [[], []];
+  private keywords: (string[] | null)[] = [null, null];
 
   public constructor(keywords: string[]) {
     const set = new Set<string>();
@@ -92,7 +92,7 @@ class DoubleArray {
           this.tail = i;
           this.base[this.head] = -(this.tail + 1);
 
-          this.keywords.push([]);
+          this.keywords.push(null);
           this.failure.push(-1);
         }
         // use child element
@@ -123,7 +123,11 @@ class DoubleArray {
         for (let i = 0; i < keyword.length; i++) {
           node += this.base[node] + this.code.get(keyword[i])!;
         }
-        this.keywords[node].push(keyword);
+
+        if (this.keywords[node] == null) {
+          this.keywords[node] = [];
+        }
+        this.keywords[node]!.push(keyword);
       }
     }
     // Build Failure
@@ -142,8 +146,15 @@ class DoubleArray {
           }
           const next = failure < 0 ? -1 : (failure + this.base[failure] + leaf);
           this.failure[node] = next < 0 ? 0 : this.check[next] !== failure ? 0 : next;
-          for (const keyword of this.keywords[this.failure[node]]) {
-            this.keywords[node].push(keyword);
+
+          const inherits = this.keywords[this.failure[node]] ?? [];
+          if (inherits.length > 0) {
+            if (this.keywords[node] == null) {
+              this.keywords[node] = [];
+            }
+            for (const keyword of inherits) {
+              this.keywords[node].push(keyword);
+            }
           }
 
           queue.push([node, trie.go(leaf)!]);
@@ -165,7 +176,7 @@ class DoubleArray {
   }
 
   public query(node: number): string[] {
-    return this.keywords[node];
+    return this.keywords[node] ?? [];
   }
 }
 

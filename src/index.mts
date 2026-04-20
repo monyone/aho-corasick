@@ -1,7 +1,7 @@
 class Trie {
   public readonly parent: Trie | null = null;
   private goto: Map<string, Trie> = new Map<string, Trie>();
-  private keywords: Set<string> = new Set<string>();
+  private keywords: Set<string> | null = null;
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
@@ -24,28 +24,34 @@ class Trie {
   }
 
   public empty() {
-    return this.keywords.size === 0;
+    return this.keywords == null || this.keywords.size === 0;
   }
   public contains(k: string) {
-    return this.keywords.has(k);
+    return this.keywords != null && this.keywords.has(k);
   }
   public add(k: string) {
+    if (this.keywords == null) {
+      this.keywords = new Set<string>();
+    }
     this.keywords.add(k);
   }
   public delete(k: string) {
-    this.keywords.delete(k)
+    this.keywords?.delete(k)
+    if (this.keywords?.size === 0) {
+      this.keywords = null;
+    }
   }
   public values() {
-    return this.keywords.values();
+    return this.keywords?.values() ?? [];
   }
   public merge(t?: Trie) {
     for(const keyword of t?.values() ?? []) {
-      this.keywords.add(keyword);
+      this.add(keyword);
     }
   }
 
   public defunct() {
-    return this.goto.size === 0 && this.keywords.size === 0;
+    return this.goto.size === 0 && this.empty();
   }
 }
 
