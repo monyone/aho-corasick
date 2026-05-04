@@ -4,14 +4,21 @@
   これはテスト用なので、パッケージとしてはサポートしない
   Trie のなかに埋め込めばキャッシュに乗りやすいかなと思ってやってみた
 
+  一応、これは DFA にすることで Failure 遷移をつぶしていて
+  キーワードのリンクはマッチ数で押さえられるため、合算して線形になる。
+  イテレーションは 厳密O(N), キーワードリンクの辿りも通しで O(マッチ数) <= 厳密 O(N) なので。
+
+  ただし、構築はめちゃくちゃ重いので、実用的ではない。
+  あと、ランダムケースでも普通に stack に負ける。とても残念。
+
+  あくまで、Trie の上に depth, 前のキーワードへのリンク, failure時のノードとキーワードの先端 を持てばいい
+  という実証実験的なもので、Double Array Trie (DAT) の表現でも出来はする、というもの。
+  追加データは 4 つ (depth, skiplink, failure_goto, failure_skip) の数値でよいというわけ。
+
   ## 既知の問題
   * Trie の子から親にたどるので逆順になる
     * 取った後 reserve しないと順番通りにならない
     * reverse があっても計算量的には影響しないが、あまり好ましくない
-  * failure 時のキーワードたどるのは償却にならない
-    * 厳密に 償却O(N) の計算量にはならない
-    * なぜなら、まだ確定してない部分を何度もチェックするから
-    * stack で見ると下から即時で押し出すのではなく、上から下に探して押し出す感じになってる
 */
 
 class Trie {
@@ -20,6 +27,7 @@ class Trie {
   public skiplink: Trie | null = null;
   private keyword: string | null = null;
   private goto: Map<string, Trie> = new Map<string, Trie>();
+  private failure: Map<string, [state: Trie, skip: Trie]> = new Map<string, [state: Trie, skip: Trie]>();
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
@@ -45,6 +53,16 @@ class Trie {
     return this.goto.values();
   }
 
+  public compress(s: string, next: Trie, skip: Trie) {
+    this.failure.set(s, [next, skip]);
+  }
+  public uncompress(s: string) {
+    this.failure.delete(s);
+  }
+  public fail(s: string) {
+    return this.failure.get(s);
+  }
+
   public empty() {
     return this.keyword == null;
   }
@@ -67,11 +85,15 @@ export class AhoCorasick {
   protected failure_link = new Map<Trie, Trie>();
 
   constructor(keywords: string[]) {
+    const characters = new Set<string>();
+
     // build goto
     for (const keyword of keywords) {
       let current = this.root;
       for (let i = 0; i < keyword.length; i++) {
         const ch = keyword[i];
+        characters.add(ch);
+
         const next = current.go(ch) ?? (new Trie(current))
         current.define(ch, next);
         current = next;
@@ -140,38 +162,69 @@ export class AhoCorasick {
         stack.push([next, next.children()]);
       }
     }
+
+    // build dfs (failure link conversion)
+    {
+      let top = 0;
+      const queue: Trie[] = [];
+      queue.push(this.root);
+      while (top < queue.length) {
+        const current = queue[top++];
+        const current_depth = current.depth;
+
+        for (const ch of characters) {
+          if (current.can(ch)) { continue; }
+
+          let failure = current;
+          while (failure !== this.root && !(failure.can(ch))) {
+            failure = this.failure_link.get(failure)!;
+          }
+          const new_depth = failure.depth;
+          failure = failure?.go(ch) ?? this.root;
+
+          current.compress(ch, failure, this.root);
+          const desire_depth = current_depth - new_depth;
+          for (let node: Trie | null = current; node != null; node = node.skiplink) {
+            if (node.empty()) { continue; }
+            if (node.depth > desire_depth) { continue; }
+            current.compress(ch, failure, node);
+            break;
+          }
+        }
+
+        for (const next of current.children()) {
+          queue.push(next);
+        }
+      }
+    }
   }
 
   public *matchInText(text: string): Iterable<{ begin: number, end: number, keyword: string }> {
     let state: Trie = this.root;
     for (let i = 0; i < text.length; i++) {
       const ch = text[i];
-      if (!state.can(ch)) { // use failure
-        const old_state = state;
-        const old_depth = state.depth;
-        while (state !== this.root && !(state.can(ch))) {
-          state = this.failure_link.get(state)!;
+
+      if (state.can(ch)) {
+        state = state.go(ch)!;
+      } else {
+        const failure = state.fail(ch);
+        const next = failure?.[0] ?? this.root;
+        const link = failure?.[1] ?? state;
+
+        const results = [];
+        for (let node: Trie | null = link; node != null; node = node.skiplink) {
+          if (node.empty()) { continue; }
+          const keyword = node.value()!;
+          const length = keyword.length;
+          const begin = i - (state.depth - node.depth) - length;
+          const end = i - (state.depth - node.depth);
+
+          results.push({ begin, end, keyword });
         }
-        const new_depth = state.depth;
-        const desire_depth = old_depth - new_depth;
+        yield* results.reverse();
 
-        {
-          const results = [];
-          for (let node: Trie | null = old_state; node != null; node = node.skiplink) {
-            if (node.empty()) { continue; }
-            if (node.depth > desire_depth) { continue; }
-
-            const keyword = node.value()!;
-            const length = keyword.length;
-            const begin = i - (old_depth - node.depth) - length;
-            const end = i - (old_depth - node.depth);
-
-            results.push({ begin, end, keyword });
-          }
-          yield* results.reverse();
-        }
+        state = next;
       }
-      state = state.go(ch) ?? this.root;
     }
 
     {
