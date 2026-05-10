@@ -355,5 +355,34 @@ export class AhoCorasick {
     }
     yield* this.replaceCleanupText(deque, remain_text, replacer);
   }
+
+  public replaceStream(replacer: Replacer): TransformStream<string, string> {
+    const aho = this;
+    const deque = new Deque<{ begin: number, end: number, keyword: string }>();
+
+    let state: Trie = this.root;
+    let remain_text = '';
+    let remain_offset = 0;
+
+    return new TransformStream<string, string>({
+      transform(chunk, controller) {
+        remain_text += chunk;
+
+        const generator = aho.replaceProcessText(state, deque, remain_text, remain_offset, replacer);
+        let result = generator.next();
+        while (!result.done) {
+          controller.enqueue(result.value);
+          result = generator.next();
+        }
+        [state, remain_text] = result.value;
+        remain_offset = remain_text.length;
+      },
+      flush(controller) {
+        for (const chunk of aho.replaceCleanupText(deque, remain_text, replacer)) {
+          controller.enqueue(chunk);
+        }
+      }
+    });
+  }
 }
 

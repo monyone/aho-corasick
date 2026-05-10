@@ -294,4 +294,29 @@ describe('replaceSync', () => {
     const result = Array.from(aho.replaceSync(chunks, (match) => `[${match}]`)).join('');
     expect(result).toBe('nomatch here [match1] and [match2] plus [match3]');
   });
+
+  test('Streaming data simulation for TransformStream', async () => {
+    const aho = new AhoCorasick(['match1', 'match2', 'match3']);
+    const chunks = ['no', 'mat', 'ch h', 'ere', ' mat', 'ch1 ', 'and ', 'mat', 'ch2', ' plu', 's ma', 'tch3'];
+
+    const readable = new ReadableStream<string>({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(chunk);
+        }
+        controller.close();
+      }
+    });
+    const transform = aho.replaceStream((match) => `[${match}]`);
+
+    let result = '';
+    const writable = new WritableStream<string>({
+      write(chunk) {
+        result += chunk;
+      }
+    });
+    await readable.pipeThrough(transform).pipeTo(writable);
+
+    expect(result).toBe('nomatch here [match1] and [match2] plus [match3]');
+  });
 });
