@@ -1,6 +1,8 @@
 import { test, expect, describe } from 'vitest';
 
-import { AhoCorasick } from '../../src/stream.mts'
+import { AhoCorasick } from '../../src/stream/stream.mts'
+import { AhoCorasick as AhoCorasickWebStream } from '../../src/stream/web/stream-web.mts'
+import { AhoCorasick as AhoCorasickNodeStream } from '../../src/stream/node/stream-node.mts'
 
 describe('replaceSync', () => {
   test('Basic replacement with single keyword', () => {
@@ -295,8 +297,8 @@ describe('replaceSync', () => {
     expect(result).toBe('nomatch here [match1] and [match2] plus [match3]');
   });
 
-  test('Streaming data simulation for TransformStream', async () => {
-    const aho = new AhoCorasick(['match1', 'match2', 'match3']);
+  test('Streaming data simulation for Web Stream', async () => {
+    const aho = new AhoCorasickWebStream(['match1', 'match2', 'match3']);
     const chunks = ['no', 'mat', 'ch h', 'ere', ' mat', 'ch1 ', 'and ', 'mat', 'ch2', ' plu', 's ma', 'tch3'];
 
     const readable = new ReadableStream<string>({
@@ -316,6 +318,37 @@ describe('replaceSync', () => {
       }
     });
     await readable.pipeThrough(transform).pipeTo(writable);
+
+    expect(result).toBe('nomatch here [match1] and [match2] plus [match3]');
+  });
+
+  test('Streaming data simulation for Node Stream', async () => {
+    const aho = new AhoCorasickNodeStream(['match1', 'match2', 'match3']);
+    const chunks = ['no', 'mat', 'ch h', 'ere', ' mat', 'ch1 ', 'and ', 'mat', 'ch2', ' plu', 's ma', 'tch3'];
+
+    const readable_web = new ReadableStream<string>({
+      start(controller) {
+        for (const chunk of chunks) {
+          controller.enqueue(chunk);
+        }
+        controller.close();
+      }
+    });
+    const { Readable, Writable } = await import("node:stream" as any);
+    const readable_node = Readable.fromWeb(readable_web);
+
+    const transform = aho.replaceStream((match) => `[${match}]`);
+
+    let result = '';
+    const writable_web = new WritableStream<string>({
+      write(chunk) {
+        result += chunk;
+      }
+    });
+    const writable_node = Writable.fromWeb(writable_web)
+
+    readable_node.pipe(transform).pipe(writable_node);
+    await new Promise((resolve) => writable_node.on('finish', resolve))
 
     expect(result).toBe('nomatch here [match1] and [match2] plus [match3]');
   });

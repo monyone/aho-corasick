@@ -46,12 +46,32 @@
     },
     "./stream": {
       "import": {
-        "types": "./dist/stream.d.mts",
-        "default": "./dist/stream.mjs"
+        "types": "./dist/stream/stream.d.mts",
+        "default": "./dist/stream/stream.mjs"
       },
       "require": {
-        "types": "./dist/stream.d.cts",
-        "default": "./dist/stream.cjs"
+        "types": "./dist/stream/stream.d.cts",
+        "default": "./dist/stream/stream.cjs"
+      }
+    },
+    "./stream/web": {
+      "import": {
+        "types": "./dist/stream/web/stream-web.d.mts",
+        "default": "./dist/stream/web/stream-web.mjs"
+      },
+      "require": {
+        "types": "./dist/stream/web/stream-web.d.cts",
+        "default": "./dist/stream/web/stream-web.cjs"
+      }
+    },
+    "./stream/node": {
+      "import": {
+        "types": "./dist/stream/node/stream-node.d.mts",
+        "default": "./dist/stream/node/stream-node.mjs"
+      },
+      "require": {
+        "types": "./dist/stream/node/stream-node.d.cts",
+        "default": "./dist/stream/node/stream-node.cjs"
       }
     }
   },
@@ -70,19 +90,19 @@
     "prepublishOnly": "tsdown"
   },
   "devDependencies": {
-    "tsdown": "^0.21.5",
-    "typescript": "^6.0.2",
-    "vite": "^8.0.3",
-    "vitest": "^4.1.2",
-
     "@tanishiking/aho-corasick": "^0.0.1",
     "@types/ahocorasick": "^1.0.0",
     "@types/chance": "^1.1.6",
+    "@types/node": "24",
     "ahocorasick": "^1.0.2",
     "chance": "^1.1.11",
     "hoshino": "^2.1.0",
     "modern-ahocorasick": "^1.0.1",
+    "tsdown": "^0.21.5",
     "tynisearch": "^1.0.11",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3",
+    "vitest": "^4.1.2",
     "word-match-helper": "^2.1.0"
   }
 }
