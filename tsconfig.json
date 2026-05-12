@@ -24,7 +24,10 @@
 
   "include": [
     "src/**/*",
-    "test/**/*",
     "perf/**/*"
+  ],
+
+  "exclude": [
+    "src/stream/node"
   ]
 }
