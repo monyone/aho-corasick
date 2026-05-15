@@ -11,7 +11,7 @@ class Trie {
 
   public constructor(parent?: Trie) {
     this.parent = parent ?? null;
-    this.depth =  (parent?.depth ?? -1) + 1;
+    this.depth = (parent?.depth ?? -1) + 1;
   }
 
   public can(s: string) {
@@ -242,7 +242,7 @@ export class AhoCorasick {
 
     for (const text of iterable) {
       remain_text += text;
-      ([state, remain_text] = yield* this.replaceProcessText(state, deque, remain_text, remain_offset, replacer));
+      [state, remain_text] = yield* this.replaceProcessText(state, deque, remain_text, remain_offset, replacer);
       remain_offset = remain_text.length;
     }
     yield* this.replaceCleanupText(deque, remain_text, replacer);
@@ -257,7 +257,7 @@ export class AhoCorasick {
 
     for await (const text of iterable) {
       remain_text += text;
-      ([state, remain_text] = yield* this.replaceProcessText(state, deque, remain_text, remain_offset, replacer));
+      [state, remain_text] = yield* this.replaceProcessText(state, deque, remain_text, remain_offset, replacer);
       remain_offset = remain_text.length;
     }
     yield* this.replaceCleanupText(deque, remain_text, replacer);
