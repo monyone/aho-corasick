@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest';
 
-import { AhoCorasick } from '../../src/greedy_stackless_skiplink.mts'
+import { AhoCorasick } from '../../src/experimental/greedy_stackless_skiplink.mts'
 
 test("Check prefix contain in matchInText", () => {
   const aho = new AhoCorasick(['abc', 'bde']);
