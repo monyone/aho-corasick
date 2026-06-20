@@ -118,7 +118,7 @@ class DoubleArray {
     }
     // Register Keyword
     {
-      for (const keyword of keywords) {
+      for (const keyword of unique) {
         let node = 0;
         for (let i = 0; i < keyword.length; i++) {
           node += this.base[node] + this.code.get(keyword[i])!;

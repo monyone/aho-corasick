@@ -101,9 +101,10 @@ export class AhoCorasick {
 
   public hasKeywordInText(text: string): boolean {
     let state: Trie = this.root;
-    for (const ch of text) {
+    for (let i = 0; i < text.length; i++) {
       if (!state.empty()) { return true; }
 
+      const ch = text[i];
       while (!state.can(ch) && state !== this.root) {
         state = this.failure_link.get(state)!;
       }
