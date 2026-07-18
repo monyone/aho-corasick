@@ -71,9 +71,20 @@ const readable = ReadableStream.from(ahocorasick.replaceAsync(stream, (key) => '
 
 
 ### More Faster Search (Double Array)
+DAT (Double Array Trie) Based Aho-Corasick implementation
+
+#### Normal Aho-Corasick
 
 ```ts
 import { AhoCorasick } from '@monyone/aho-corasick/fast';
+
+const ahocorasick = new AhoCorasick(keywords);
+const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matchInText(text);
+```
+
+#### Greedy (Leftmost-Longest) Variant
+```ts
+import { AhoCorasick } from '@monyone/aho-corasick/greedy/fast';
 
 const ahocorasick = new AhoCorasick(keywords);
 const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matchInText(text);

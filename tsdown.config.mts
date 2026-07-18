@@ -4,7 +4,8 @@ export default defineConfig({
   entry: [
     'src/index.mts',
     'src/fast.mts',
-    'src/greedy.mts',
+    'src/greedy/greedy.mts',
+    'src/greedy/fast.mts',
     'src/stream/stream.mts',
     'src/stream/web/stream-web.mts',
     'src/stream/node/stream-node.mts',

@@ -1,6 +1,6 @@
 {
   "name": "@monyone/aho-corasick",
-  "version": "1.1.12",
+  "version": "1.1.13",
   "author": "monyone <monyone.teihen@gmail.com>",
   "description": "Aho Corasick implementation written in TypeScript",
   "keywords": [
@@ -36,12 +36,22 @@
     },
     "./greedy": {
       "import": {
-        "types": "./dist/greedy.d.mts",
-        "default": "./dist/greedy.mjs"
+        "types": "./dist/greedy/greedy.d.mts",
+        "default": "./dist/greedy/greedy.mjs"
       },
       "require": {
-        "types": "./dist/greedy.d.cts",
-        "default": "./dist/greedy.cjs"
+        "types": "./dist/greedy/greedy.d.cts",
+        "default": "./dist/greedy/greedy.cjs"
+      }
+    },
+    "./greedy/fast": {
+      "import": {
+        "types": "./dist/greedy/fast.d.mts",
+        "default": "./dist/greedy/fast.mjs"
+      },
+      "require": {
+        "types": "./dist/greedy/fast.d.cts",
+        "default": "./dist/greedy/fast.cjs"
       }
     },
     "./stream": {

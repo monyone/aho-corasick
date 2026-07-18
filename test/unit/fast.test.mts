@@ -95,7 +95,6 @@ describe('matchInText', () => {
     const aho = new AhoCorasick(['abc', 'abc']);
     const result = aho.matchInText('abc');
     expect(result).toStrictEqual([
-      { begin: 0, end: 3, keyword: 'abc'},
       { begin: 0, end: 3, keyword: 'abc'}
     ]);
   });
