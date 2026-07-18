@@ -1,7 +1,7 @@
 import Deque from "./deque.mts";
 
 export type Match = { begin: number, end: number, keyword: string };
-export type Replacer = (detect: string) => string;
+export type Replacer = Record<string, string> | Map<string, string> | ((detect: string) => string | false);
 
 class Trie {
   public readonly parent: Trie | null = null;
@@ -149,6 +149,18 @@ export class AhoCorasick {
     }
   }
 
+  private static handleReplacer(value: string, replacer: Replacer): string {
+    if (replacer instanceof Map) {
+      return replacer.get(value) ?? value;
+    } else if (typeof(replacer) === 'object') {
+      return replacer[value] ?? value;
+    } else {
+      const replaced = replacer(value);
+      if (replaced === false) { return value; }
+      return replaced;
+    }
+  }
+
   protected *replaceProcessText(trie: Trie, deque: Deque<Match>, remain_text: string, remain_offset: number, replacer: Replacer): Generator<string, [trie: Trie, remain_text: string], unknown> {
     let state = trie;
     let confirmed_index = 0;
@@ -170,7 +182,7 @@ export class AhoCorasick {
           if (output_begin < first.begin) {
             yield remain_text.slice(output_begin, first.begin);
           }
-          yield replacer(remain_text.slice(first.begin, first.end));
+          yield AhoCorasick.handleReplacer(remain_text.slice(first.begin, first.end), replacer);
           output_begin = first.end;
 
           deque.pollFirst()!;
@@ -222,7 +234,7 @@ export class AhoCorasick {
       if (output_begin < first.begin) {
         yield text.slice(output_begin, first.begin);
       }
-      yield replacer(text.slice(first.begin, first.end));
+      yield AhoCorasick.handleReplacer(text.slice(first.begin, first.end), replacer);
       output_begin = first.end;
 
       deque.pollFirst()!;
