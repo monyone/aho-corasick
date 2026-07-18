@@ -155,13 +155,13 @@ export class AhoCorasick {
       return replacer.get(detect) ?? detect;
     } else if (typeof(replacer) === 'object') {
       if (Object.prototype.hasOwnProperty.call(replacer, detect)) {
-        return replacer[detect];
+        return replacer[detect] ?? detect;
       } else {
         return detect;
       }
     } else {
       const replaced = replacer(detect);
-      return replaced !== false ? replaced : detect;
+      return replaced !== false ? replaced ?? detect : detect;
     }
   }
   private static handleAsyncableReplacer(detect: string, replacer: AsyncableReplacer): string | Promise<string> {
@@ -169,7 +169,7 @@ export class AhoCorasick {
       return replacer.get(detect) ?? detect;
     } else if (typeof(replacer) === 'object') {
       if (Object.prototype.hasOwnProperty.call(replacer, detect)) {
-        return replacer[detect];
+        return replacer[detect] ?? detect;
       } else {
         return detect;
       }
@@ -177,10 +177,10 @@ export class AhoCorasick {
       const replaced = replacer(detect);
       if (replaced instanceof Promise) {
         return replaced.then((replaced) => {
-          return replaced !== false ? replaced : detect;
+          return replaced !== false ? replaced ?? detect: detect;
         });
       } else {
-        return replaced !== false ? replaced : detect;
+        return replaced !== false ? replaced ?? detect: detect;
       }
     }
   }

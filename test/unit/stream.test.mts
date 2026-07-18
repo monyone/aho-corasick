@@ -335,7 +335,7 @@ describe('replaceSync', () => {
       }
     });
     const { Readable, Writable } = await import("node:stream" as any);
-    const readable_node = Readable.fromWeb(readable_web);
+    const readable_node = Readable.fromWeb(readable_web, { objectMode: true });
 
     const transform = aho.replaceStream((match) => `[${match}]`);
 
@@ -348,7 +348,12 @@ describe('replaceSync', () => {
     const writable_node = Writable.fromWeb(writable_web)
 
     readable_node.pipe(transform).pipe(writable_node);
-    await new Promise((resolve) => writable_node.on('finish', resolve))
+    await new Promise((resolve, reject) => {
+      writable_node.on('finish', resolve);
+      readable_node.on('error', reject);
+      transform.on('error', reject);
+      writable_node.on('error', reject);
+    });
 
     expect(result).toBe('nomatch here [match1] and [match2] plus [match3]');
   });

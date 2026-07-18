@@ -19,6 +19,7 @@ export class AhoCorasick extends AhoCorasickBase {
       transform(chunk, _, cb) {
         if (typeof(chunk) !== 'string') {
           cb(new TypeError(`Expected chunk to be a string, but received ${typeof chunk}`));
+          return;
         }
 
         remain_text += chunk;
@@ -55,6 +56,7 @@ export class AhoCorasick extends AhoCorasickBase {
       async transform(chunk, _, cb) {
         if (typeof(chunk) !== 'string') {
           cb(new TypeError(`Expected chunk to be a string, but received ${typeof chunk}`));
+          return;
         }
 
         remain_text += chunk;
