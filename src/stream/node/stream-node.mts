@@ -15,7 +15,12 @@ export class AhoCorasick extends AhoCorasickBase {
     let remain_offset = 0;
 
     return new Transform({
+      decodeStrings: false,
       transform(chunk, _, cb) {
+        if (typeof(chunk) !== 'string') {
+          cb(new TypeError(`Expected chunk to be a string, but received ${typeof chunk}`));
+        }
+
         remain_text += chunk;
 
         const generator = aho.replaceProcessTextSync(state, deque, remain_text, remain_offset, replacer);
@@ -46,7 +51,12 @@ export class AhoCorasick extends AhoCorasickBase {
     let remain_offset = 0;
 
     return new Transform({
+      decodeStrings: false,
       async transform(chunk, _, cb) {
+        if (typeof(chunk) !== 'string') {
+          cb(new TypeError(`Expected chunk to be a string, but received ${typeof chunk}`));
+        }
+
         remain_text += chunk;
 
         const generator = aho.replaceProcessTextAsync(state, deque, remain_text, remain_offset, replacer);
