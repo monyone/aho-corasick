@@ -9,6 +9,7 @@ export class AhoCorasick extends AhoCorasickBase {
   public replaceStream(replacer: Replacer): Transform {
     const aho = this;
     const deque = new Deque<Match>();
+    let deque_offset = 0;
 
     let state = this.root;
     let remain_text = '';
@@ -24,18 +25,19 @@ export class AhoCorasick extends AhoCorasickBase {
 
         remain_text += chunk;
 
-        const generator = aho.replaceProcessTextSync(state, deque, remain_text, remain_offset, replacer);
+        const generator = aho.replaceProcessTextSync(state, deque, deque_offset, remain_text, remain_offset, replacer);
         let result = generator.next();
         while (!result.done) {
           this.push(result.value);
           result = generator.next();
         }
-        [state, remain_text] = result.value;
+        [state, deque_offset, remain_text] = result.value;
         remain_offset = remain_text.length;
+        deque_offset = aho.maintainOffset(deque, deque_offset);
         cb();
       },
       flush(cb) {
-        for (const chunk of aho.replaceCleanupTextSync(deque, remain_text, replacer)) {
+        for (const chunk of aho.replaceCleanupTextSync(deque, deque_offset, remain_text, replacer)) {
           this.push(chunk);
         }
         cb();
@@ -46,6 +48,7 @@ export class AhoCorasick extends AhoCorasickBase {
   public replaceStreamAsync(replacer: AsyncableReplacer): Transform {
     const aho = this;
     const deque = new Deque<Match>();
+    let deque_offset = 0;
 
     let state = this.root;
     let remain_text = '';
@@ -61,18 +64,19 @@ export class AhoCorasick extends AhoCorasickBase {
 
         remain_text += chunk;
 
-        const generator = aho.replaceProcessTextAsync(state, deque, remain_text, remain_offset, replacer);
+        const generator = aho.replaceProcessTextAsync(state, deque, deque_offset, remain_text, remain_offset, replacer);
         let result = await generator.next();
         while (!result.done) {
           this.push(result.value);
           result = await generator.next();
         }
-        [state, remain_text] = result.value;
+        [state, deque_offset, remain_text] = result.value;
         remain_offset = remain_text.length;
+        deque_offset = aho.maintainOffset(deque, deque_offset);
         cb();
       },
       async flush(cb) {
-        for await (const chunk of aho.replaceCleanupTextAsync(deque, remain_text, replacer)) {
+        for await (const chunk of aho.replaceCleanupTextAsync(deque, deque_offset, remain_text, replacer)) {
           this.push(chunk);
         }
         cb();

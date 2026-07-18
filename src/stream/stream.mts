@@ -51,10 +51,12 @@ class Trie {
 export class AhoCorasick {
   protected root = new Trie();
   protected failure_link = new Map<Trie, Trie>();
+  protected readonly maxKeywordLength: number = 0;
 
   constructor(keywords: string[]) {
     // build goto
     for (const keyword of keywords) {
+      this.maxKeywordLength = Math.max(this.maxKeywordLength, keyword.length);
       let current = this.root;
       for (let i = 0; i < keyword.length; i++) {
         const ch = keyword[i];
@@ -185,7 +187,18 @@ export class AhoCorasick {
     }
   }
 
-  protected *replaceProcessTextSync(trie: Trie, deque: Deque<Match>, remain_text: string, remain_offset: number, replacer: Replacer): Generator<string, [trie: Trie, remain_text: string], unknown> {
+  protected maintainOffset(deque: Deque<Match>, offset: number): number {
+    // 一応 2 倍にしておく (空文字と普通の文字が入るケースを今後入れたい)
+    if (Math.abs(offset) <= 2 * this.maxKeywordLength) { return offset; }
+
+    for (const elem of deque) {
+      elem.begin += offset;
+      elem.end += offset;
+    }
+    return 0;
+  }
+
+  protected *replaceProcessTextSync(trie: Trie, deque: Deque<Match>, deque_offset: number, remain_text: string, remain_offset: number, replacer: Replacer): Generator<string, [trie: Trie, deque_offset: number, remain_text: string], unknown> {
     let state = trie;
     let confirmed_index = 0;
     let output_begin = 0;
@@ -201,13 +214,15 @@ export class AhoCorasick {
         confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
         while (!deque.empty()) {
           const first = deque.peekFirst()!;
-          if (first.end > confirmed_index) { break; }
+          const first_begin = first.begin + deque_offset;
+          const first_end = first.end + deque_offset;
+          if (first_end > confirmed_index) { break; }
 
-          if (output_begin < first.begin) {
-            yield remain_text.slice(output_begin, first.begin);
+          if (output_begin < first_begin) {
+            yield remain_text.slice(output_begin, first_begin);
           }
-          yield AhoCorasick.handleReplacer(remain_text.slice(first.begin, first.end), replacer);
-          output_begin = first.end;
+          yield AhoCorasick.handleReplacer(remain_text.slice(first_begin, first_end), replacer);
+          output_begin = first_end;
 
           deque.pollFirst()!;
         }
@@ -222,15 +237,25 @@ export class AhoCorasick {
 
         while (true) {
           if (deque.empty()) {
-            deque.addLast({ begin, end, keyword });
+            deque.addLast({
+              begin: begin - deque_offset,
+              end: end - deque_offset,
+              keyword
+            });
             break;
           }
 
           const last = deque.peekLast()!;
-          if (last.end <= begin) {
-            deque.addLast({ begin, end, keyword });
+          const last_begin = last.begin + deque_offset;
+          const last_end = last.end + deque_offset;
+          if (last_end <= begin) {
+            deque.addLast({
+              begin: begin - deque_offset,
+              end: end - deque_offset,
+              keyword
+            });
             break;
-          } else if (begin > last.begin) {
+          } else if (begin > last_begin) {
             break;
           } else {
             deque.pollLast();
@@ -242,15 +267,11 @@ export class AhoCorasick {
     if (output_begin < confirmed_index) {
       yield remain_text.slice(output_begin, confirmed_index);
     }
-    for (const elem of deque) {
-      elem.begin -= confirmed_index;
-      elem.end -= confirmed_index;
-    }
+    deque_offset -= confirmed_index;
     remain_text = remain_text.slice(confirmed_index);
-
-    return [state, remain_text];
+    return [state, deque_offset, remain_text];
   }
-  protected async *replaceProcessTextAsync(trie: Trie, deque: Deque<Match>, remain_text: string, remain_offset: number, replacer: AsyncableReplacer): AsyncGenerator<string, [trie: Trie, remain_text: string], unknown> {
+  protected async *replaceProcessTextAsync(trie: Trie, deque: Deque<Match>, deque_offset: number, remain_text: string, remain_offset: number, replacer: AsyncableReplacer): AsyncGenerator<string, [trie: Trie, deque_offset: number, remain_text: string], unknown> {
     let state = trie;
     let confirmed_index = 0;
     let output_begin = 0;
@@ -266,16 +287,18 @@ export class AhoCorasick {
         confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : 1);
         while (!deque.empty()) {
           const first = deque.peekFirst()!;
-          if (first.end > confirmed_index) { break; }
+          const first_begin = first.begin + deque_offset;
+          const first_end = first.end + deque_offset;
+          if (first_end > confirmed_index) { break; }
 
-          if (output_begin < first.begin) {
-            yield remain_text.slice(output_begin, first.begin);
+          if (output_begin < first_begin) {
+            yield remain_text.slice(output_begin, first_begin);
           }
           {
-            const replaced = AhoCorasick.handleAsyncableReplacer(remain_text.slice(first.begin, first.end), replacer);
+            const replaced = AhoCorasick.handleAsyncableReplacer(remain_text.slice(first_begin, first_end), replacer);
             yield !(replaced instanceof Promise) ? replaced : await replaced;
           }
-          output_begin = first.end;
+          output_begin = first_end;
 
           deque.pollFirst()!;
         }
@@ -290,15 +313,25 @@ export class AhoCorasick {
 
         while (true) {
           if (deque.empty()) {
-            deque.addLast({ begin, end, keyword });
+            deque.addLast({
+              begin: begin - deque_offset,
+              end: end - deque_offset,
+              keyword
+            });
             break;
           }
 
           const last = deque.peekLast()!;
-          if (last.end <= begin) {
-            deque.addLast({ begin, end, keyword });
+          const last_begin = last.begin + deque_offset;
+          const last_end = last.end + deque_offset;
+          if (last_end <= begin) {
+            deque.addLast({
+              begin: begin - deque_offset,
+              end: end - deque_offset,
+              keyword
+            });
             break;
-          } else if (begin > last.begin) {
+          } else if (begin > last_begin) {
             break;
           } else {
             deque.pollLast();
@@ -310,25 +343,23 @@ export class AhoCorasick {
     if (output_begin < confirmed_index) {
       yield remain_text.slice(output_begin, confirmed_index);
     }
-    for (const elem of deque) {
-      elem.begin -= confirmed_index;
-      elem.end -= confirmed_index;
-    }
+    deque_offset -= confirmed_index;
     remain_text = remain_text.slice(confirmed_index);
-
-    return [state, remain_text];
+    return [state, deque_offset, remain_text];
   }
 
-  protected *replaceCleanupTextSync(deque: Deque<Match>, text: string, replacer: Replacer): Iterable<string> {
+  protected *replaceCleanupTextSync(deque: Deque<Match>, deque_offset: number, text: string, replacer: Replacer): Iterable<string> {
     let output_begin = 0;
     while (!deque.empty()) {
       const first = deque.peekFirst()!;
+      const first_begin = first.begin + deque_offset;
+      const first_end = first.end + deque_offset;
 
-      if (output_begin < first.begin) {
-        yield text.slice(output_begin, first.begin);
+      if (output_begin < first_begin) {
+        yield text.slice(output_begin, first_begin);
       }
-      yield AhoCorasick.handleReplacer(text.slice(first.begin, first.end), replacer);
-      output_begin = first.end;
+      yield AhoCorasick.handleReplacer(text.slice(first_begin, first_end), replacer);
+      output_begin = first_end;
 
       deque.pollFirst()!;
     }
@@ -337,19 +368,21 @@ export class AhoCorasick {
       yield text.slice(output_begin, text.length);
     }
   }
-  protected async *replaceCleanupTextAsync(deque: Deque<Match>, text: string, replacer: AsyncableReplacer): AsyncIterable<string> {
+  protected async *replaceCleanupTextAsync(deque: Deque<Match>, deque_offset: number, text: string, replacer: AsyncableReplacer): AsyncIterable<string> {
     let output_begin = 0;
     while (!deque.empty()) {
       const first = deque.peekFirst()!;
+      const first_begin = first.begin + deque_offset;
+      const first_end = first.end + deque_offset;
 
-      if (output_begin < first.begin) {
-        yield text.slice(output_begin, first.begin);
+      if (output_begin < first_begin) {
+        yield text.slice(output_begin, first_begin);
       }
       {
-        const replaced = AhoCorasick.handleAsyncableReplacer(text.slice(first.begin, first.end), replacer);
+        const replaced = AhoCorasick.handleAsyncableReplacer(text.slice(first_begin, first_end), replacer);
         yield !(replaced instanceof Promise) ? replaced : await replaced;
       }
-      output_begin = first.end;
+      output_begin = first_end;
 
       deque.pollFirst()!;
     }
@@ -361,6 +394,7 @@ export class AhoCorasick {
 
   public *replaceSync(iterable: Iterable<string>, replacer: Replacer): Iterable<string> {
     const deque = new Deque<Match>();
+    let deque_offset = 0;
 
     let state: Trie = this.root;
     let remain_text = '';
@@ -368,14 +402,17 @@ export class AhoCorasick {
 
     for (const text of iterable) {
       remain_text += text;
-      [state, remain_text] = yield* this.replaceProcessTextSync(state, deque, remain_text, remain_offset, replacer);
+      [state, deque_offset, remain_text] = yield* this.replaceProcessTextSync(state, deque, deque_offset, remain_text, remain_offset, replacer);
+
       remain_offset = remain_text.length;
+      deque_offset = this.maintainOffset(deque, deque_offset);
     }
-    yield* this.replaceCleanupTextSync(deque, remain_text, replacer);
+    yield* this.replaceCleanupTextSync(deque, deque_offset, remain_text, replacer);
   }
 
   public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer): AsyncIterable<string> {
     const deque = new Deque<Match>();
+    let deque_offset = 0;
 
     let state: Trie = this.root;
     let remain_text = '';
@@ -383,14 +420,17 @@ export class AhoCorasick {
 
     for await (const text of iterable) {
       remain_text += text;
-      [state, remain_text] = yield* this.replaceProcessTextSync(state, deque, remain_text, remain_offset, replacer);
+      [state, deque_offset, remain_text] = yield* this.replaceProcessTextSync(state, deque, deque_offset, remain_text, remain_offset, replacer);
+
       remain_offset = remain_text.length;
+      deque_offset = this.maintainOffset(deque, deque_offset);
     }
-    yield* this.replaceCleanupTextSync(deque, remain_text, replacer);
+    yield* this.replaceCleanupTextSync(deque, deque_offset, remain_text, replacer);
   }
 
   public async *replaceAsyncToMaybePromise(iterable: AsyncIterable<string>, replacer: AsyncableReplacer): AsyncIterable<string> {
     const deque = new Deque<Match>();
+    let deque_offset = 0;
 
     let state: Trie = this.root;
     let remain_text = '';
@@ -398,10 +438,11 @@ export class AhoCorasick {
 
     for await (const text of iterable) {
       remain_text += text;
-      [state, remain_text] = yield* this.replaceProcessTextAsync(state, deque, remain_text, remain_offset, replacer);
+      [state, deque_offset, remain_text] = yield* this.replaceProcessTextAsync(state, deque, deque_offset, remain_text, remain_offset, replacer);
       remain_offset = remain_text.length;
+      deque_offset = this.maintainOffset(deque, deque_offset);
     }
-    yield* this.replaceCleanupTextAsync(deque, remain_text, replacer);
+    yield* this.replaceCleanupTextAsync(deque, deque_offset, remain_text, replacer);
   }
 }
 
