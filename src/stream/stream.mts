@@ -154,7 +154,11 @@ export class AhoCorasick {
     if (replacer instanceof Map) {
       return replacer.get(detect) ?? detect;
     } else if (typeof(replacer) === 'object') {
-      return replacer[detect] ?? detect;
+      if (Object.prototype.hasOwnProperty.call(replacer, detect)) {
+        return replacer[detect];
+      } else {
+        return detect;
+      }
     } else {
       const replaced = replacer(detect);
       return replaced !== false ? replaced : detect;
@@ -164,7 +168,11 @@ export class AhoCorasick {
     if (replacer instanceof Map) {
       return replacer.get(detect) ?? detect;
     } else if (typeof(replacer) === 'object') {
-      return replacer[detect] ?? detect;
+      if (Object.prototype.hasOwnProperty.call(replacer, detect)) {
+        return replacer[detect];
+      } else {
+        return detect;
+      }
     } else {
       const replaced = replacer(detect);
       if (replaced instanceof Promise) {
