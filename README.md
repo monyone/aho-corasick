@@ -73,6 +73,8 @@ const readable = ReadableStream.from(ahocorasick.replaceAsync(stream, (key) => '
 ### More Faster Search (Double Array)
 DAT (Double Array Trie) Based Aho-Corasick implementation
 
+Fast Search, but Build (Construction) heavy.
+
 #### Normal Aho-Corasick
 
 ```ts
