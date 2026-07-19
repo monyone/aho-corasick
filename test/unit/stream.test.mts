@@ -290,6 +290,69 @@ describe('replaceSync', () => {
     expect(result).toBe('[abcdefgh]i');
   });
 
+  test('Collector amortization: long text with many small chunks forces reposition', () => {
+    const aho = new AhoCorasick(['error', 'warning', 'info', 'debug', 'critical', 'the', 'quick', 'brown', 'fox']);
+
+    const words = ['the quick brown fox ', 'error occurred ', 'warning issued ', 'info logged ', 'debug trace ', 'critical alert ', 'xyz filler text here '];
+    let text = '';
+    for (let i = 0; i < 500; i++) {
+      text += words[i % words.length];
+    }
+
+    const expected = Array.from(aho.matchInText(text)).reduce((acc, m) => {
+      return { out: acc.out + text.slice(acc.pos, m.begin) + `[${m.keyword}]`, pos: m.end };
+    }, { out: '', pos: 0 });
+    const expectedText = expected.out + text.slice(expected.pos);
+
+    for (const chunkLen of [1, 2, 3, 5, 7, 11, 13]) {
+      const chunks: string[] = [];
+      for (let i = 0; i < text.length; i += chunkLen) {
+        chunks.push(text.slice(i, i + chunkLen));
+      }
+      const result = Array.from(aho.replaceSync(chunks, (match) => `[${match}]`)).join('');
+      expect(result, `chunkLen=${chunkLen}`).toBe(expectedText);
+    }
+  });
+
+  test('Collector amortization: keyword longer than chunk size, repeated across reposition boundary', () => {
+    const longKeyword = 'abcdefghijklmnop'; // length 16
+    const aho = new AhoCorasick([longKeyword, 'xyz', 'qq']);
+    let text = '';
+    for (let i = 0; i < 300; i++) {
+      text += (i % 7 === 0) ? longKeyword : 'qqxyzqq';
+    }
+
+    const expected = Array.from(aho.matchInText(text)).reduce((acc, m) => {
+      return { out: acc.out + text.slice(acc.pos, m.begin) + `<${m.keyword}>`, pos: m.end };
+    }, { out: '', pos: 0 });
+    const expectedText = expected.out + text.slice(expected.pos);
+
+    for (const chunkLen of [1, 2, 3, 5, 8, 17, 23]) {
+      const chunks: string[] = [];
+      for (let i = 0; i < text.length; i += chunkLen) {
+        chunks.push(text.slice(i, i + chunkLen));
+      }
+      const result = Array.from(aho.replaceSync(chunks, (match) => `<${match}>`)).join('');
+      expect(result, `chunkLen=${chunkLen}`).toBe(expectedText);
+    }
+  });
+
+  test('Collector amortization: long passthrough text with no matches', () => {
+    const aho = new AhoCorasick(['zzz', 'notfound']);
+    let text = '';
+    for (let i = 0; i < 1000; i++) {
+      text += 'the quick brown fox jumps ';
+    }
+    for (const chunkLen of [1, 3, 9, 50]) {
+      const chunks: string[] = [];
+      for (let i = 0; i < text.length; i += chunkLen) {
+        chunks.push(text.slice(i, i + chunkLen));
+      }
+      const result = Array.from(aho.replaceSync(chunks, () => 'X')).join('');
+      expect(result, `chunkLen=${chunkLen}`).toBe(text);
+    }
+  });
+
   test('Streaming data simulation with incomplete matches at chunk ends', () => {
     const aho = new AhoCorasick(['match1', 'match2', 'match3']);
     const chunks = ['no', 'mat', 'ch h', 'ere', ' mat', 'ch1 ', 'and ', 'mat', 'ch2', ' plu', 's ma', 'tch3'];

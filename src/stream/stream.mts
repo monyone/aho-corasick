@@ -1,3 +1,4 @@
+import Collector from "./collector.mts";
 import Deque from "./deque.mts";
 
 export type Match = { begin: number, end: number, keyword: string };
@@ -187,23 +188,24 @@ export class AhoCorasick {
     }
   }
 
-  private maintainAmortization(deque: Deque<Match>, remain: string, confirmed_index: number): [string, number] {
+  private maintainAmortization(deque: Deque<Match>, collector: Collector, confirmed_index: number): number {
     // 一応 2 倍にしておく (空文字と普通の文字が入るケースを今後入れたい)
-    if (confirmed_index <= 2 * this.maxKeywordLength) { return [remain, confirmed_index]; }
+    if (confirmed_index <= 2 * this.maxKeywordLength) { return confirmed_index }
 
     for (const elem of deque) {
       elem.begin -= confirmed_index;
       elem.end -= confirmed_index;
     }
-    return [remain.slice(confirmed_index), 0];
+    collector.reposition(confirmed_index);
+    return 0;
   }
 
-  protected *replaceProcessTextSync(trie: Trie, deque: Deque<Match>, chunk: string, confirmed_offset: number, remain_text: string, replacer: Replacer): Generator<string, [trie: Trie, confirmed_offset: number, remain_text: string], unknown> {
+  protected *replaceProcessTextSync(trie: Trie, deque: Deque<Match>, chunk: string, confirmed_offset: number, collector: Collector, replacer: Replacer): Generator<string, [trie: Trie, confirmed_offset: number], unknown> {
     let state = trie;
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
-    const remain_offset = remain_text.length;
-    remain_text += chunk;
+    const remain_offset = collector.length;
+    collector.feed(chunk);
 
     for (let i = 0; i < chunk.length; i++) {
       const ch = chunk[i];
@@ -219,9 +221,9 @@ export class AhoCorasick {
           if (first.end > confirmed_index) { break; }
 
           if (output_begin < first.begin) {
-            yield remain_text.slice(output_begin, first.begin);
+            yield* collector.take(first.begin - output_begin);
           }
-          yield AhoCorasick.handleReplacer(remain_text.slice(first.begin, first.end), replacer);
+          yield AhoCorasick.handleReplacer(collector.collect(first.end - first.begin), replacer);
           output_begin = first.end;
 
           deque.pollFirst()!;
@@ -255,17 +257,17 @@ export class AhoCorasick {
     }
 
     if (output_begin < confirmed_index) {
-      yield remain_text.slice(output_begin, confirmed_index);
+      yield* collector.take(confirmed_index - output_begin);
     }
-    [remain_text, confirmed_offset] = this.maintainAmortization(deque, remain_text, confirmed_index);
-    return [state, confirmed_offset, remain_text];
+    confirmed_offset = this.maintainAmortization(deque, collector, confirmed_index);
+    return [state, confirmed_offset];
   }
-  protected async *replaceProcessTextAsync(trie: Trie, deque: Deque<Match>, chunk: string, confirmed_offset: number, remain_text: string, replacer: AsyncableReplacer): AsyncGenerator<string, [trie: Trie, confirmed_offset: number, remain_text: string], unknown> {
+  protected async *replaceProcessTextAsync(trie: Trie, deque: Deque<Match>, chunk: string, confirmed_offset: number, collector: Collector, replacer: AsyncableReplacer): AsyncGenerator<string, [trie: Trie, confirmed_offset: number], unknown> {
     let state = trie;
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
-    const remain_offset = remain_text.length;
-    remain_text += chunk;
+    const remain_offset = collector.length;
+    collector.feed(chunk);
 
     for (let i = 0; i < chunk.length; i++) {
       const ch = chunk[i];
@@ -281,10 +283,10 @@ export class AhoCorasick {
           if (first.end > confirmed_index) { break; }
 
           if (output_begin < first.begin) {
-            yield remain_text.slice(output_begin, first.begin);
+            yield* collector.take(first.begin - output_begin);
           }
           {
-            const replaced = AhoCorasick.handleAsyncableReplacer(remain_text.slice(first.begin, first.end), replacer);
+            const replaced = AhoCorasick.handleAsyncableReplacer(collector.collect(first.end - first.begin), replacer);
             yield !(replaced instanceof Promise) ? replaced : await replaced;
           }
           output_begin = first.end;
@@ -320,40 +322,40 @@ export class AhoCorasick {
     }
 
     if (output_begin < confirmed_index) {
-      yield remain_text.slice(output_begin, confirmed_index);
+      yield* collector.take(confirmed_index - output_begin);
     }
-    [remain_text, confirmed_offset] = this.maintainAmortization(deque, remain_text, confirmed_index);
-    return [state, confirmed_offset, remain_text];
+    confirmed_offset = this.maintainAmortization(deque, collector, confirmed_index);
+    return [state, confirmed_offset];
   }
 
-  protected *replaceCleanupTextSync(deque: Deque<Match>, confirmed_offset: number, text: string, replacer: Replacer): Iterable<string> {
+  protected *replaceCleanupTextSync(deque: Deque<Match>, confirmed_offset: number, collector: Collector, replacer: Replacer): Iterable<string> {
     let output_begin = confirmed_offset;
     while (!deque.empty()) {
       const first = deque.peekFirst()!;
 
       if (output_begin < first.begin) {
-        yield text.slice(output_begin, first.begin);
+        yield* collector.take(first.begin - output_begin);
       }
-      yield AhoCorasick.handleReplacer(text.slice(first.begin, first.end), replacer);
+      yield AhoCorasick.handleReplacer(collector.collect(first.end - first.begin), replacer);
       output_begin = first.end;
 
       deque.pollFirst()!;
     }
 
-    if (output_begin < text.length) {
-      yield text.slice(output_begin, text.length);
+    if (output_begin < collector.length) {
+      yield* collector.take(collector.length - output_begin);
     }
   }
-  protected async *replaceCleanupTextAsync(deque: Deque<Match>, confirmed_offset: number, text: string, replacer: AsyncableReplacer): AsyncIterable<string> {
+  protected async *replaceCleanupTextAsync(deque: Deque<Match>, confirmed_offset: number, collector: Collector, replacer: AsyncableReplacer): AsyncIterable<string> {
     let output_begin = confirmed_offset;
     while (!deque.empty()) {
       const first = deque.peekFirst()!;
 
       if (output_begin < first.begin) {
-        yield text.slice(output_begin, first.begin);
+        yield* collector.take(first.begin - output_begin);
       }
       {
-        const replaced = AhoCorasick.handleAsyncableReplacer(text.slice(first.begin, first.end), replacer);
+        const replaced = AhoCorasick.handleAsyncableReplacer(collector.collect(first.end - first.begin), replacer);
         yield !(replaced instanceof Promise) ? replaced : await replaced;
       }
       output_begin = first.end;
@@ -361,8 +363,8 @@ export class AhoCorasick {
       deque.pollFirst()!;
     }
 
-    if (output_begin < text.length) {
-      yield text.slice(output_begin, text.length);
+    if (output_begin < collector.length) {
+      yield* collector.take(collector.length - output_begin);
     }
   }
 
@@ -370,39 +372,39 @@ export class AhoCorasick {
     const deque = new Deque<Match>();
 
     let state: Trie = this.root;
-    let remain_text = '';
+    const collector = new Collector();
     let confirmed_offset = 0;
 
     for (const text of iterable) {
-      [state, confirmed_offset, remain_text] = yield* this.replaceProcessTextSync(state, deque, text, confirmed_offset, remain_text, replacer);
+      [state, confirmed_offset] = yield* this.replaceProcessTextSync(state, deque, text, confirmed_offset, collector, replacer);
     }
-    yield* this.replaceCleanupTextSync(deque, confirmed_offset, remain_text, replacer);
+    yield* this.replaceCleanupTextSync(deque, confirmed_offset, collector, replacer);
   }
 
   public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer): AsyncIterable<string> {
     const deque = new Deque<Match>();
 
     let state: Trie = this.root;
-    let remain_text = '';
+    const collector = new Collector();
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
-      [state, confirmed_offset, remain_text] = yield* this.replaceProcessTextSync(state, deque, text, confirmed_offset, remain_text, replacer);
+      [state, confirmed_offset] = yield* this.replaceProcessTextSync(state, deque, text, confirmed_offset, collector, replacer);
     }
-    yield* this.replaceCleanupTextSync(deque, confirmed_offset, remain_text, replacer);
+    yield* this.replaceCleanupTextSync(deque, confirmed_offset, collector, replacer);
   }
 
   public async *replaceAsyncToMaybePromise(iterable: AsyncIterable<string>, replacer: AsyncableReplacer): AsyncIterable<string> {
     const deque = new Deque<Match>();
 
     let state: Trie = this.root;
-    let remain_text = '';
+    const collector = new Collector();
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
-      [state, confirmed_offset, remain_text] = yield* this.replaceProcessTextAsync(state, deque, text, confirmed_offset, remain_text, replacer);
+      [state, confirmed_offset] = yield* this.replaceProcessTextAsync(state, deque, text, confirmed_offset, collector, replacer);
     }
-    yield* this.replaceCleanupTextAsync(deque, confirmed_offset, remain_text, replacer);
+    yield* this.replaceCleanupTextAsync(deque, confirmed_offset, collector, replacer);
   }
 }
 
