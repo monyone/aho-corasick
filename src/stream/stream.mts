@@ -223,7 +223,8 @@ export class AhoCorasick {
           if (output_begin < first.begin) {
             yield* collector.take(first.begin - output_begin);
           }
-          yield AhoCorasick.handleReplacer(collector.collect(first.end - first.begin), replacer);
+          yield AhoCorasick.handleReplacer(first.keyword, replacer);
+          collector.skip(first.end - first.begin);
           output_begin = first.end;
 
           deque.pollFirst()!;
@@ -286,7 +287,8 @@ export class AhoCorasick {
             yield* collector.take(first.begin - output_begin);
           }
           {
-            const replaced = AhoCorasick.handleAsyncableReplacer(collector.collect(first.end - first.begin), replacer);
+            const replaced = AhoCorasick.handleAsyncableReplacer(first.keyword, replacer);
+            collector.skip(first.end - first.begin);
             yield !(replaced instanceof Promise) ? replaced : await replaced;
           }
           output_begin = first.end;
@@ -336,7 +338,8 @@ export class AhoCorasick {
       if (output_begin < first.begin) {
         yield* collector.take(first.begin - output_begin);
       }
-      yield AhoCorasick.handleReplacer(collector.collect(first.end - first.begin), replacer);
+      yield AhoCorasick.handleReplacer(first.keyword, replacer);
+      collector.skip(first.end - first.begin);
       output_begin = first.end;
 
       deque.pollFirst()!;
@@ -355,7 +358,8 @@ export class AhoCorasick {
         yield* collector.take(first.begin - output_begin);
       }
       {
-        const replaced = AhoCorasick.handleAsyncableReplacer(collector.collect(first.end - first.begin), replacer);
+        const replaced = AhoCorasick.handleAsyncableReplacer(first.keyword, replacer);
+        collector.skip(first.end - first.begin);
         yield !(replaced instanceof Promise) ? replaced : await replaced;
       }
       output_begin = first.end;

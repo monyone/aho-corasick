@@ -52,9 +52,29 @@ export default class Collector {
     }
   }
 
-  public collect(length: number): string {
-    return Array.from(this.take(length)).reduce((a, b) => {
-      return a += b;
-    }, '');
+  public skip(length: number): void {
+    length = Math.min(length, this.remains);
+
+    while (length > 0 && !this.deque.empty()) {
+      const chunk = this.deque.pollFirst()!;
+      const avail = chunk.length - this.consumed;
+
+      if (avail >= length) {
+        const end = this.consumed + length;
+
+        if (end === chunk.length) {
+          this.consumed = 0
+        } else {
+          this.deque.addFirst(chunk);
+          this.consumed += length;
+        }
+        this.remains -= length;
+        length = 0;
+      } else {
+        this.consumed = 0;
+        this.remains -= avail;
+        length -= avail;
+      }
+    }
   }
 }
