@@ -60,12 +60,14 @@ class DoubleArray {
     {
       let top = 0;
       const queue: [number, Trie][] = [[0, root]];
+      let offset_hint = this.head;
       while (top < queue.length) {
         const [node, trie] = queue[top++];
         const leafs = Array.from(trie.keys());
         const max_leaf = leafs.reduce((a, b) => Math.max(a, b), 0);
 
-        let offset = this.head;
+        let offset = offset_hint;
+        let free_count = 1;
         LOOP:
         while (true) {
           for (const leaf of leafs) {
@@ -73,6 +75,7 @@ class DoubleArray {
             if (next < this.check.length && this.check[next] >= 0) {
               // we must keep empty node in last element, loop must be finite
               offset = -(this.check[offset] + 1);
+              free_count += 1;
               continue LOOP;
             }
           }
@@ -82,6 +85,10 @@ class DoubleArray {
 
         // register node
         this.base[node] = offset - node;
+        // register hint (20 = 95% filled)
+        if (free_count * 20 <= (offset - offset_hint)) {
+          offset_hint = offset;
+        }
         // reserve node
         const max = offset + max_leaf + 1 /* keep empty node */;
         for (let i = this.base.length; i <= max; i++) {
