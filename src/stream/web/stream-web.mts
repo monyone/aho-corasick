@@ -3,6 +3,8 @@ import Deque from "../deque.mts";
 import { AhoCorasick as AhoCorasickBase } from "../stream.mts";
 import type { Replacer, AsyncableReplacer, Match } from "../stream.mts";
 
+export { Replacer } from "../stream.mts";
+
 export class AhoCorasick extends AhoCorasickBase {
 
   public replaceStream(replacer: Replacer): TransformStream<string, string> {

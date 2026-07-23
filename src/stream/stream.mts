@@ -2,8 +2,68 @@ import Collector from "./collector.mts";
 import Deque from "./deque.mts";
 
 export type Match = { begin: number, end: number, keyword: string };
-export type Replacer = Record<string, string> | Map<string, string> | ((detect: string) => string | false);
-export type AsyncableReplacer = Replacer | ((detect: string) => Promise<string | false>);
+type ReplaceFunc = ((detect: string) => (string | false));
+type AsyncableReplaceFunc = ((detect: string) => Promise<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
+export type Replacer = Record<string, string> | Map<string, string> | ReplaceFunc;
+export type AsyncableReplacer = Replacer | AsyncableReplaceFunc;
+
+const handleReplacer = (detect: string, replacer: Replacer): string => {
+  if (replacer instanceof Map) {
+    return replacer.get(detect) ?? detect;
+  } else if (typeof(replacer) === 'object') {
+    if (Object.prototype.hasOwnProperty.call(replacer, detect)) {
+      return replacer[detect] ?? detect;
+    } else {
+      return detect;
+    }
+  } else {
+    const replaced = replacer(detect);
+    return replaced !== false ? replaced ?? detect : detect;
+  }
+};
+
+const handleAsyncableReplacer = (detect: string, replacer: AsyncableReplacer): string | Promise<string> => {
+  if (replacer instanceof Map) {
+    return replacer.get(detect) ?? detect;
+  } else if (typeof(replacer) === 'object') {
+    if (Object.prototype.hasOwnProperty.call(replacer, detect)) {
+      return replacer[detect] ?? detect;
+    } else {
+      return detect;
+    }
+  } else {
+    const replaced = replacer(detect);
+    if (replaced instanceof Promise) {
+      return replaced.then((replaced) => {
+        return replaced !== false ? replaced ?? detect: detect;
+      });
+    } else {
+      return replaced !== false ? replaced ?? detect: detect;
+    }
+  }
+};
+
+export const Replacer = {
+  Keep: () => (() => false),
+  Delete: () => (() => ''),
+  Mask: (ch: string) => ((str: string) => ch.repeat(str.length)),
+  Once: (replacer: Replacer) => {
+    const set = new Set<string>();
+    return (str: string) => {
+      if (set.has(str)) { return false; }
+      set.add(str);
+      return handleReplacer(str, replacer);
+    };
+  },
+  OnceAsync: (replacer: AsyncableReplacer) => {
+    const set = new Set<string>();
+    return (str: string) => {
+      if (set.has(str)) { return false; }
+      set.add(str);
+      return handleAsyncableReplacer(str, replacer);
+    };
+  },
+} as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
 
 class Trie {
   public readonly parent: Trie | null = null;
@@ -153,41 +213,6 @@ export class AhoCorasick {
     }
   }
 
-  private static handleReplacer(detect: string, replacer: Replacer): string {
-    if (replacer instanceof Map) {
-      return replacer.get(detect) ?? detect;
-    } else if (typeof(replacer) === 'object') {
-      if (Object.prototype.hasOwnProperty.call(replacer, detect)) {
-        return replacer[detect] ?? detect;
-      } else {
-        return detect;
-      }
-    } else {
-      const replaced = replacer(detect);
-      return replaced !== false ? replaced ?? detect : detect;
-    }
-  }
-  private static handleAsyncableReplacer(detect: string, replacer: AsyncableReplacer): string | Promise<string> {
-    if (replacer instanceof Map) {
-      return replacer.get(detect) ?? detect;
-    } else if (typeof(replacer) === 'object') {
-      if (Object.prototype.hasOwnProperty.call(replacer, detect)) {
-        return replacer[detect] ?? detect;
-      } else {
-        return detect;
-      }
-    } else {
-      const replaced = replacer(detect);
-      if (replaced instanceof Promise) {
-        return replaced.then((replaced) => {
-          return replaced !== false ? replaced ?? detect: detect;
-        });
-      } else {
-        return replaced !== false ? replaced ?? detect: detect;
-      }
-    }
-  }
-
   private maintainAmortization(deque: Deque<Match>, collector: Collector, confirmed_index: number): number {
     // 一応 2 倍にしておく (空文字と普通の文字が入るケースを今後入れたい)
     if (confirmed_index <= 2 * this.maxKeywordLength) { return confirmed_index }
@@ -223,7 +248,7 @@ export class AhoCorasick {
           if (output_begin < first.begin) {
             yield* collector.take(first.begin - output_begin);
           }
-          yield AhoCorasick.handleReplacer(first.keyword, replacer);
+          yield handleReplacer(first.keyword, replacer);
           collector.skip(first.end - first.begin);
           output_begin = first.end;
 
@@ -287,7 +312,7 @@ export class AhoCorasick {
             yield* collector.take(first.begin - output_begin);
           }
           {
-            const replaced = AhoCorasick.handleAsyncableReplacer(first.keyword, replacer);
+            const replaced = handleAsyncableReplacer(first.keyword, replacer);
             collector.skip(first.end - first.begin);
             yield !(replaced instanceof Promise) ? replaced : await replaced;
           }
@@ -338,7 +363,7 @@ export class AhoCorasick {
       if (output_begin < first.begin) {
         yield* collector.take(first.begin - output_begin);
       }
-      yield AhoCorasick.handleReplacer(first.keyword, replacer);
+      yield handleReplacer(first.keyword, replacer);
       collector.skip(first.end - first.begin);
       output_begin = first.end;
 
@@ -358,7 +383,7 @@ export class AhoCorasick {
         yield* collector.take(first.begin - output_begin);
       }
       {
-        const replaced = AhoCorasick.handleAsyncableReplacer(first.keyword, replacer);
+        const replaced = handleAsyncableReplacer(first.keyword, replacer);
         collector.skip(first.end - first.begin);
         yield !(replaced instanceof Promise) ? replaced : await replaced;
       }

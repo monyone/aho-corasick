@@ -5,6 +5,8 @@ import { AhoCorasick as AhoCorasickBase } from "../stream.mts";
 import type { Replacer, AsyncableReplacer, Match } from "../stream.mts";
 import Collector from "../collector.mts";
 
+export { Replacer } from "../stream.mts";
+
 export class AhoCorasick extends AhoCorasickBase {
 
   public replaceStream(replacer: Replacer): Transform {
