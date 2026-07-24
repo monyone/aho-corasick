@@ -55,7 +55,11 @@ export const Replacer = {
       return handleReplacer(str, replacer);
     };
   },
-  OnceAsync: (replacer: AsyncableReplacer) => {
+} as const satisfies Record<string, (...args: any[]) => Replacer>;
+
+export const AsyncableReplacer = {
+  ... Replacer,
+  Once: (replacer: AsyncableReplacer) => {
     const set = new Set<string>();
     return (str: string) => {
       if (set.has(str)) { return false; }
