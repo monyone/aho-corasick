@@ -2,17 +2,19 @@ import { Transform } from "node:stream";
 
 import Deque from "../deque.mts";
 import { AhoCorasick as AhoCorasickBase } from "../stream.mts";
-import type { Replacer, AsyncableReplacer, Match } from "../stream.mts";
+import type { Replacer, AsyncableReplacer, Match, BoundaryFunc } from "../stream.mts";
 import Collector from "../collector.mts";
+import RingBuffer from "../ringbuffer.mts";
 
-export { Replacer, AsyncableReplacer, Boundary, } from "../stream.mts";
+export { Replacer, AsyncableReplacer, Boundary } from "../stream.mts";
 export type { BoundaryFunc } from "../stream.mts";
 
 export class AhoCorasick extends AhoCorasickBase {
 
-  public replaceStream(replacer: Replacer): Transform {
+  public replaceStream(replacer: Replacer, boundary?: BoundaryFunc): Transform {
     const aho = this;
     const deque = new Deque<Match>();
+    const ring = new RingBuffer<string>(this.maxKeywordLength + 2);
 
     let state = this.root;
     const collector = new Collector();
@@ -26,7 +28,7 @@ export class AhoCorasick extends AhoCorasickBase {
           return;
         }
 
-        const generator = aho.replaceProcessTextSync(state, deque, chunk, confirmed_offset, collector, replacer);
+        const generator = aho.replaceProcessTextSync(state, deque, ring, chunk, confirmed_offset, collector, replacer, boundary);
         let result = generator.next();
         while (!result.done) {
           this.push(result.value);
@@ -36,7 +38,7 @@ export class AhoCorasick extends AhoCorasickBase {
         cb();
       },
       flush(cb) {
-        for (const chunk of aho.replaceCleanupTextSync(deque, confirmed_offset, collector, replacer)) {
+        for (const chunk of aho.replaceCleanupTextSync(state, deque, ring, confirmed_offset, collector, replacer, boundary)) {
           this.push(chunk);
         }
         cb();
@@ -44,9 +46,10 @@ export class AhoCorasick extends AhoCorasickBase {
     });
   }
 
-  public replaceStreamAsync(replacer: AsyncableReplacer): Transform {
+  public replaceStreamAsync(replacer: AsyncableReplacer, boundary?: BoundaryFunc): Transform {
     const aho = this;
     const deque = new Deque<Match>();
+    const ring = new RingBuffer<string>(this.maxKeywordLength + 2);
 
     let state = this.root;
     const collector = new Collector();
@@ -60,7 +63,7 @@ export class AhoCorasick extends AhoCorasickBase {
           return;
         }
 
-        const generator = aho.replaceProcessTextAsync(state, deque, chunk, confirmed_offset, collector, replacer);
+        const generator = aho.replaceProcessTextAsync(state, deque, ring, chunk, confirmed_offset, collector, replacer, boundary);
         let result = await generator.next();
         while (!result.done) {
           this.push(result.value);
@@ -70,7 +73,7 @@ export class AhoCorasick extends AhoCorasickBase {
         cb();
       },
       async flush(cb) {
-        for await (const chunk of aho.replaceCleanupTextAsync(deque, confirmed_offset, collector, replacer)) {
+        for await (const chunk of aho.replaceCleanupTextAsync(state, deque, ring, confirmed_offset, collector, replacer, boundary)) {
           this.push(chunk);
         }
         cb();

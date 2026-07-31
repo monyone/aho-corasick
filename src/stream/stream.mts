@@ -1,36 +1,16 @@
 import Collector from "./collector.mts";
 import Deque from "./deque.mts";
+import RingBuffer from "./ringbuffer.mts";
 
 export type Match = { begin: number, end: number, keyword: string };
 
-type ReplaceFunc = ((detect: string, left?: string, right?: string) => (string | false));
-type AsyncableReplaceFunc = ((detect: string, left?: string, right?: string) => Promise<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
+type ReplaceFunc = ((detect: string) => (string | false));
+type AsyncableReplaceFunc = ((detect: string) => Promise<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
 export type Replacer = Record<string, string> | Map<string, string> | ReplaceFunc;
 export type AsyncableReplacer = Replacer | AsyncableReplaceFunc;
-export type BoundaryFunc = (detect: string, left: string | null, right: string | null) => boolean;
+export type BoundaryFunc = (detect: string, left: string, right: string) => boolean;
 
-export const Boundary = {
-  WhiteSpace: (): BoundaryFunc => {
-    const isBoundary = (ch: string | null) => ch == null || /\s/.test(ch);
-    return (_, left, right) => isBoundary(left) && isBoundary(right);
-  },
-  AsciiTerm: (): BoundaryFunc => {
-    const isAsciiChar = (ch: string) => /[A-Za-z0-9_&#+.-]/.test(ch);
-    const isAsciiTerm = (ch: string) => /^[A-Za-z0-9_&#+.-]+$/.test(ch);
-    const isBoundary = (ch: string | null) => ch == null || !isAsciiChar(ch);
-    return (detect, left, right) => {
-      if (!isAsciiTerm(detect)) { return true; }
-      if (isBoundary(left) && isBoundary(right)) { return true; }
-      return false;
-    };
-  },
-  By: (separator: RegExp): BoundaryFunc => {
-    const isBoundary = (ch: string | null) => ch == null || separator.test(ch);
-    return (_, left, right) => isBoundary(left) && isBoundary(right);
-  },
-} as const satisfies Record<string, (...args: any[]) => BoundaryFunc>;
-
-const handleReplacer = (detect: string, left: string | null, right: string | null, replacer: Replacer): string => {
+const handleReplacer = (detect: string, replacer: Replacer): string => {
   if (replacer instanceof Map) {
     return replacer.get(detect) ?? detect;
   } else if (typeof(replacer) === 'object') {
@@ -40,12 +20,12 @@ const handleReplacer = (detect: string, left: string | null, right: string | nul
       return detect;
     }
   } else {
-    const replaced = replacer(detect, left ?? undefined, right ?? undefined);
+    const replaced = replacer(detect);
     return replaced !== false ? replaced ?? detect : detect;
   }
 };
 
-const handleAsyncableReplacer = (detect: string, left: string | null, right: string | null, replacer: AsyncableReplacer): string | Promise<string> => {
+const handleAsyncableReplacer = (detect: string, replacer: AsyncableReplacer): string | Promise<string> => {
   if (replacer instanceof Map) {
     return replacer.get(detect) ?? detect;
   } else if (typeof(replacer) === 'object') {
@@ -55,7 +35,7 @@ const handleAsyncableReplacer = (detect: string, left: string | null, right: str
       return detect;
     }
   } else {
-    const replaced = replacer(detect, left ?? undefined, right ?? undefined);
+    const replaced = replacer(detect);
     if (replaced instanceof Promise) {
       return replaced.then((replaced) => {
         return replaced !== false ? replaced ?? detect: detect;
@@ -66,43 +46,61 @@ const handleAsyncableReplacer = (detect: string, left: string | null, right: str
   }
 };
 
+const handleBoundary = (detect: string, left: string | null, right: string | null, boundary?: BoundaryFunc): boolean => {
+  if (left == null || right == null) { return true; }
+  return boundary?.(detect, left, right) ?? true;
+}
+
 export const Replacer = {
   Keep: () => (() => false),
   Delete: () => (() => ''),
   Mask: (ch: string) => ((str: string) => ch.repeat(str.length)),
-  WithBoundary: (boundary: BoundaryFunc, replacer: Replacer) => {
-    return (str: string, left?: string, right?: string) => {
-      if (!boundary(str, left ?? null, right ?? null)) { return false;}
-      return handleReplacer(str, left ?? null, right ?? null, replacer);
-    }
-  },
   Once: (replacer: Replacer) => {
     const set = new Set<string>();
     return (str: string, left?: string, right?: string) => {
       if (set.has(str)) { return false; }
       set.add(str);
-      return handleReplacer(str, left ?? null, right ?? null, replacer);
+      return handleReplacer(str, replacer);
     };
   },
 } as const satisfies Record<string, (...args: any[]) => Replacer>;
 
 export const AsyncableReplacer = {
   ... Replacer,
-  WithBoundary: (boundary: BoundaryFunc, replacer: AsyncableReplacer) => {
-    return (str: string, left?: string, right?: string) => {
-      if (!boundary(str, left ?? null, right ?? null)) { return false;}
-      return handleAsyncableReplacer(str, left ?? null, right ?? null, replacer);
-    }
-  },
   Once: (replacer: AsyncableReplacer) => {
     const set = new Set<string>();
     return (str: string, left?: string, right?: string) => {
       if (set.has(str)) { return false; }
       set.add(str);
-      return handleAsyncableReplacer(str, left ?? null, right ?? null, replacer);
+      return handleAsyncableReplacer(str, replacer);
     };
   },
 } as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
+
+export const Boundary = {
+  WhiteSpace: (): BoundaryFunc => {
+    const isBoundary = (ch: string) => /\s/.test(ch);
+    return (_, left, right) => isBoundary(left) || isBoundary(right);
+  },
+  AsciiTerm: (): BoundaryFunc => {
+    const isAsciiChar = (ch: string) => /[A-Za-z0-9_&#+.-]/.test(ch);
+    const isAsciiTerm = (term: string) => /^[A-Za-z0-9_&#+.-](?:[A-Za-z0-9_&#+.\s-]*[A-Za-z0-9_&#+.-])?$/.test(term);
+    const isAsciiTermCache = new Map<string, boolean>();
+    return (detect, left, right) => {
+      const asciiTermCache = isAsciiTermCache.get(detect);
+      if (asciiTermCache === false) { return true; }
+      const asciiTerm = asciiTermCache ?? isAsciiTerm(detect);
+      if (!isAsciiTermCache.has(detect)) {
+        isAsciiTermCache.set(detect, asciiTerm);
+      }
+      if (!asciiTerm) { return true; }
+      return !(isAsciiChar(left) && isAsciiChar(right));
+    };
+  },
+  By: (separator: RegExp): BoundaryFunc => {
+    return (_, left, right) => separator.test(left) || separator.test(right);
+  },
+} as const satisfies Record<string, (...args: any[]) => BoundaryFunc>;
 
 class Trie {
   public readonly parent: Trie | null = null;
@@ -147,7 +145,6 @@ class Trie {
     this.keyword ??= t?.keyword ?? null;
   }
 }
-
 export class AhoCorasick {
   protected root = new Trie();
   protected failure_link = new Map<Trie, Trie>();
@@ -252,7 +249,7 @@ export class AhoCorasick {
     }
   }
 
-  private maintainAmortization(deque: Deque<Match>, collector: Collector, confirmed_index: number): number {
+  private maintainAmortization(deque: Deque<Match>, ring: RingBuffer<string>, collector: Collector, confirmed_index: number): number {
     // 一応 2 倍にしておく (空文字と普通の文字が入るケースを今後入れたい)
     if (confirmed_index <= 2 * this.maxKeywordLength) { return confirmed_index }
 
@@ -261,10 +258,41 @@ export class AhoCorasick {
       elem.end -= confirmed_index;
     }
     collector.reposition(confirmed_index);
+    ring.reposition(confirmed_index);
     return 0;
   }
 
-  protected *replaceProcessTextSync(trie: Trie, deque: Deque<Match>, chunk: string, confirmed_offset: number, collector: Collector, replacer: Replacer): Generator<string, [trie: Trie, confirmed_offset: number], unknown> {
+  private maintainDeque(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, index: number, offset: number, boundary?: BoundaryFunc): void {
+    if (trie.empty()) { return; }
+
+    const keyword = trie.value()!;
+    const length = keyword.length;
+    const begin = index + offset - length;
+    const end = index + offset;
+
+    const l = length === 0 || (boundary == null || handleBoundary(keyword, ring.get(begin - 1), ring.get(begin - 0), boundary));
+    const r = length === 0 || (boundary == null || handleBoundary(keyword, ring.get(end - 1), ring.get(end + 0), boundary));
+    if (!l || !r) { return; }
+
+    while (true) {
+      if (deque.empty()) {
+        deque.addLast({ begin, end, keyword });
+        break;
+      }
+
+      const last = deque.peekLast()!;
+      if (last.end <= begin) {
+        deque.addLast({ begin, end, keyword });
+        break;
+      } else if (begin > last.begin) {
+        break;
+      } else {
+        deque.pollLast();
+      }
+    }
+  }
+
+  protected *replaceProcessTextSync(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, chunk: string, confirmed_offset: number, collector: Collector, replacer: Replacer, boundary?: BoundaryFunc): Generator<string, [trie: Trie, confirmed_offset: number], unknown> {
     let state = trie;
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
@@ -273,6 +301,10 @@ export class AhoCorasick {
 
     for (let i = 0; i < chunk.length; i++) {
       const ch = chunk[i];
+      ring.push(ch);
+
+      this.maintainDeque(state, deque, ring, i, remain_offset, boundary);
+
       if (!state.can(ch)) { // use failure
         const old_depth = state.depth;
         while (state !== this.root && !(state.can(ch))) {
@@ -287,49 +319,23 @@ export class AhoCorasick {
           if (output_begin < first.begin) {
             yield* collector.take(first.begin - output_begin);
           }
-          const left = collector.tail();
           collector.skip(first.end - first.begin);
-          const right = collector.peek();
-          yield handleReplacer(first.keyword, left, right, replacer);
+          yield handleReplacer(first.keyword, replacer);
           output_begin = first.end;
 
           deque.pollFirst()!;
         }
       }
       state = state.go(ch) ?? this.root;
-
-      if (!state.empty()) {
-        const keyword = state.value()!;
-        const length = keyword.length;
-        const begin = (i + 1) + remain_offset - length;
-        const end = (i + 1) + remain_offset;
-
-        while (true) {
-          if (deque.empty()) {
-            deque.addLast({ begin, end, keyword });
-            break;
-          }
-
-          const last = deque.peekLast()!;
-          if (last.end <= begin) {
-            deque.addLast({ begin, end, keyword });
-            break;
-          } else if (begin > last.begin) {
-            break;
-          } else {
-            deque.pollLast();
-          }
-        }
-      }
     }
 
     if (output_begin < confirmed_index) {
       yield* collector.take(confirmed_index - output_begin);
     }
-    confirmed_offset = this.maintainAmortization(deque, collector, confirmed_index);
+    confirmed_offset = this.maintainAmortization(deque, ring, collector, confirmed_index);
     return [state, confirmed_offset];
   }
-  protected async *replaceProcessTextAsync(trie: Trie, deque: Deque<Match>, chunk: string, confirmed_offset: number, collector: Collector, replacer: AsyncableReplacer): AsyncGenerator<string, [trie: Trie, confirmed_offset: number], unknown> {
+  protected async *replaceProcessTextAsync(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, chunk: string, confirmed_offset: number, collector: Collector, replacer: AsyncableReplacer, boundary?: BoundaryFunc): AsyncGenerator<string, [trie: Trie, confirmed_offset: number], unknown> {
     let state = trie;
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
@@ -338,6 +344,10 @@ export class AhoCorasick {
 
     for (let i = 0; i < chunk.length; i++) {
       const ch = chunk[i];
+      ring.push(ch);
+
+      this.maintainDeque(state, deque, ring, i, remain_offset, boundary);
+
       if (!state.can(ch)) { // use failure
         const old_depth = state.depth;
         while (state !== this.root && !(state.can(ch))) {
@@ -353,10 +363,8 @@ export class AhoCorasick {
             yield* collector.take(first.begin - output_begin);
           }
           {
-            const left = collector.tail();
             collector.skip(first.end - first.begin);
-            const right = collector.peek();
-            const replaced = handleAsyncableReplacer(first.keyword, left, right, replacer);
+            const replaced = handleAsyncableReplacer(first.keyword, replacer);
             yield !(replaced instanceof Promise) ? replaced : await replaced;
           }
           output_begin = first.end;
@@ -365,40 +373,20 @@ export class AhoCorasick {
         }
       }
       state = state.go(ch) ?? this.root;
-
-      if (!state.empty()) {
-        const keyword = state.value()!;
-        const length = keyword.length;
-        const begin = (i + 1) + remain_offset - length;
-        const end = (i + 1) + remain_offset;
-
-        while (true) {
-          if (deque.empty()) {
-            deque.addLast({ begin, end, keyword });
-            break;
-          }
-
-          const last = deque.peekLast()!;
-          if (last.end <= begin) {
-            deque.addLast({ begin, end, keyword });
-            break;
-          } else if (begin > last.begin) {
-            break;
-          } else {
-            deque.pollLast();
-          }
-        }
-      }
     }
 
     if (output_begin < confirmed_index) {
       yield* collector.take(confirmed_index - output_begin);
     }
-    confirmed_offset = this.maintainAmortization(deque, collector, confirmed_index);
+    confirmed_offset = this.maintainAmortization(deque, ring, collector, confirmed_index);
     return [state, confirmed_offset];
   }
 
-  protected *replaceCleanupTextSync(deque: Deque<Match>, confirmed_offset: number, collector: Collector, replacer: Replacer): Iterable<string> {
+  protected *replaceCleanupTextSync(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, confirmed_offset: number, collector: Collector, replacer: Replacer, boundary?: BoundaryFunc): Iterable<string> {
+    const state = trie;
+    const remain_offset = collector.length;
+    this.maintainDeque(state, deque, ring, 0, remain_offset, boundary);
+
     let output_begin = confirmed_offset;
     while (!deque.empty()) {
       const first = deque.peekFirst()!;
@@ -406,10 +394,8 @@ export class AhoCorasick {
       if (output_begin < first.begin) {
         yield* collector.take(first.begin - output_begin);
       }
-      const left = collector.tail();
       collector.skip(first.end - first.begin);
-      const right = collector.peek();
-      yield handleReplacer(first.keyword, left, right, replacer);
+      yield handleReplacer(first.keyword, replacer);
 
       output_begin = first.end;
 
@@ -420,7 +406,11 @@ export class AhoCorasick {
       yield* collector.take(collector.length - output_begin);
     }
   }
-  protected async *replaceCleanupTextAsync(deque: Deque<Match>, confirmed_offset: number, collector: Collector, replacer: AsyncableReplacer): AsyncIterable<string> {
+  protected async *replaceCleanupTextAsync(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, confirmed_offset: number, collector: Collector, replacer: AsyncableReplacer, boundary?: BoundaryFunc): AsyncIterable<string> {
+    const state = trie;
+    const remain_offset = collector.length;
+    this.maintainDeque(state, deque, ring, 0, remain_offset, boundary);
+
     let output_begin = confirmed_offset;
     while (!deque.empty()) {
       const first = deque.peekFirst()!;
@@ -429,10 +419,8 @@ export class AhoCorasick {
         yield* collector.take(first.begin - output_begin);
       }
       {
-        const left = collector.tail();
         collector.skip(first.end - first.begin);
-        const right = collector.peek();
-        const replaced = handleAsyncableReplacer(first.keyword, left, right, replacer);
+        const replaced = handleAsyncableReplacer(first.keyword, replacer);
         yield !(replaced instanceof Promise) ? replaced : await replaced;
       }
       output_begin = first.end;
@@ -445,43 +433,46 @@ export class AhoCorasick {
     }
   }
 
-  public *replaceSync(iterable: Iterable<string>, replacer: Replacer): Iterable<string> {
+  public *replaceSync(iterable: Iterable<string>, replacer: Replacer, boundary?: BoundaryFunc): Iterable<string> {
     const deque = new Deque<Match>();
+    const ring = new RingBuffer<string>(this.maxKeywordLength + 2);
 
     let state: Trie = this.root;
     const collector = new Collector();
     let confirmed_offset = 0;
 
     for (const text of iterable) {
-      [state, confirmed_offset] = yield* this.replaceProcessTextSync(state, deque, text, confirmed_offset, collector, replacer);
+      [state, confirmed_offset] = yield* this.replaceProcessTextSync(state, deque, ring, text, confirmed_offset, collector, replacer, boundary);
     }
-    yield* this.replaceCleanupTextSync(deque, confirmed_offset, collector, replacer);
+    yield* this.replaceCleanupTextSync(state, deque, ring, confirmed_offset, collector, replacer, boundary);
   }
 
-  public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer): AsyncIterable<string> {
+  public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer, boundary?: BoundaryFunc): AsyncIterable<string> {
     const deque = new Deque<Match>();
+    const ring = new RingBuffer<string>(this.maxKeywordLength + 2);
 
     let state: Trie = this.root;
     const collector = new Collector();
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
-      [state, confirmed_offset] = yield* this.replaceProcessTextSync(state, deque, text, confirmed_offset, collector, replacer);
+      [state, confirmed_offset] = yield* this.replaceProcessTextSync(state, deque, ring, text, confirmed_offset, collector, replacer, boundary);
     }
-    yield* this.replaceCleanupTextSync(deque, confirmed_offset, collector, replacer);
+    yield* this.replaceCleanupTextSync(state, deque, ring, confirmed_offset, collector, replacer, boundary);
   }
 
-  public async *replaceAsyncToMaybePromise(iterable: AsyncIterable<string>, replacer: AsyncableReplacer): AsyncIterable<string> {
+  public async *replaceAsyncToMaybePromise(iterable: AsyncIterable<string>, replacer: AsyncableReplacer, boundary?: BoundaryFunc): AsyncIterable<string> {
     const deque = new Deque<Match>();
+    const ring = new RingBuffer<string>(this.maxKeywordLength + 2);
 
     let state: Trie = this.root;
     const collector = new Collector();
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
-      [state, confirmed_offset] = yield* this.replaceProcessTextAsync(state, deque, text, confirmed_offset, collector, replacer);
+      [state, confirmed_offset] = yield* this.replaceProcessTextAsync(state, deque, ring, text, confirmed_offset, collector, replacer, boundary);
     }
-    yield* this.replaceCleanupTextAsync(deque, confirmed_offset, collector, replacer);
+    yield* this.replaceCleanupTextAsync(state, deque, ring, confirmed_offset, collector, replacer, boundary);
   }
 }
 
