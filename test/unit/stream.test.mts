@@ -442,7 +442,7 @@ describe('RingBuffer', () => {
   });
 
   test('recent values stay retrievable and old values are evicted', () => {
-    const ring = new RingBuffer<string>(2);
+    const ring = new RingBuffer<string>(3);
     for (const ch of 'abcdefgh') { ring.push(ch); }
     // the last `capacity` positions are always retrievable
     expect(ring.get(7)).toBe('h');
@@ -471,7 +471,7 @@ describe('RingBuffer', () => {
     expect(ring.size()).toBe(1);
     for (const ch of 'bcdefgh') { ring.push(ch); }
     // size is bounded no matter how many values are pushed
-    expect(ring.size()).toBeLessThanOrEqual(2 * 2);
+    expect(ring.size()).toBeLessThanOrEqual(2);
   });
 });
 
@@ -772,6 +772,36 @@ describe('Boundary.AsciiTerm', () => {
     const aho = new AhoCorasick(['ABC CD', 'ABC']);
     const result = Array.from(aho.replaceSync(['ABC C', 'DE'], (match) => `[${match}]`, Boundary.AsciiTerm())).join('');
     expect(result).toBe('[ABC] CDE');
+  });
+});
+
+describe('Boundary.AsciiEdge', () => {
+  const replace = (keywords: string[], chunks: string[], replacement: string) =>
+    Array.from(new AhoCorasick(keywords).replaceSync(chunks, () => replacement, Boundary.AsciiEdge())).join('');
+
+  test('replaces standalone word but keeps substring inside a larger word', () => {
+    expect(replace(['cat'], ['a cat and category'], 'DOG')).toBe('a DOG and category');
+  });
+
+  test('adjacent word characters block the match', () => {
+    expect(replace(['cat'], ['cat1 scat concatenate'], 'DOG')).toBe('cat1 scat concatenate');
+  });
+
+  test('brackets and spaces count as boundaries', () => {
+    expect(replace(['cat'], ['(cat) cat'], 'DOG')).toBe('(DOG) DOG');
+  });
+
+  test('non-ASCII keyword edges always pass', () => {
+    // the keyword edges themselves are non-ascii, so surrounding ascii cannot block
+    expect(replace(['東京'], ['ab東京cd'], 'X')).toBe('abXcd');
+  });
+
+  test('unlike AsciiTerm, the edge check applies to every keyword', () => {
+    // '@' makes "ab@cd" not an ascii term: AsciiTerm skips the check, AsciiEdge does not
+    const term = Array.from(new AhoCorasick(['ab@cd']).replaceSync(['xab@cdy'], () => 'X', Boundary.AsciiTerm())).join('');
+    expect(term).toBe('xXy');
+    expect(replace(['ab@cd'], ['xab@cdy'], 'X')).toBe('xab@cdy');
+    expect(replace(['ab@cd'], ['x ab@cd y'], 'X')).toBe('x X y');
   });
 });
 

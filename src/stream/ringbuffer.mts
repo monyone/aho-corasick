@@ -6,7 +6,7 @@ export default class RingBuffer<T> {
   private reference = 0;
 
   public constructor(capacity: number) {
-    this.capacity = capacity * 2;
+    this.capacity = capacity + 1;
     this.ring = Array.from({ length: this.capacity }, () => null);
   }
 

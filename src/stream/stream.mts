@@ -57,7 +57,7 @@ export const Replacer = {
   Mask: (ch: string) => ((str: string) => ch.repeat(str.length)),
   Once: (replacer: Replacer) => {
     const set = new Set<string>();
-    return (str: string, left?: string, right?: string) => {
+    return (str: string) => {
       if (set.has(str)) { return false; }
       set.add(str);
       return handleReplacer(str, replacer);
@@ -69,7 +69,7 @@ export const AsyncableReplacer = {
   ... Replacer,
   Once: (replacer: AsyncableReplacer) => {
     const set = new Set<string>();
-    return (str: string, left?: string, right?: string) => {
+    return (str: string) => {
       if (set.has(str)) { return false; }
       set.add(str);
       return handleAsyncableReplacer(str, replacer);
@@ -94,6 +94,12 @@ export const Boundary = {
         isAsciiTermCache.set(detect, asciiTerm);
       }
       if (!asciiTerm) { return true; }
+      return !(isAsciiChar(left) && isAsciiChar(right));
+    };
+  },
+  AsciiEdge: (): BoundaryFunc => {
+    const isAsciiChar = (ch: string) => /[A-Za-z0-9_&#+.-]/.test(ch);
+    return (_, left, right) => {
       return !(isAsciiChar(left) && isAsciiChar(right));
     };
   },
@@ -149,6 +155,8 @@ export class AhoCorasick {
   protected root = new Trie();
   protected failure_link = new Map<Trie, Trie>();
   protected readonly maxKeywordLength: number = 0;
+  protected readonly maintainLength: number = 0;
+  protected readonly ringbufferCapacity: number = 0;
 
   constructor(keywords: string[]) {
     // build goto
@@ -163,6 +171,8 @@ export class AhoCorasick {
       }
       current.add(keyword);
     }
+    this.maintainLength = this.maxKeywordLength * 2;
+    this.ringbufferCapacity = this.maintainLength + 2;
 
     // build failure
     {
@@ -250,8 +260,7 @@ export class AhoCorasick {
   }
 
   private maintainAmortization(deque: Deque<Match>, ring: RingBuffer<string>, collector: Collector, confirmed_index: number): number {
-    // 一応 2 倍にしておく (空文字と普通の文字が入るケースを今後入れたい)
-    if (confirmed_index <= 2 * this.maxKeywordLength) { return confirmed_index }
+    if (confirmed_index <= this.maintainLength) { return confirmed_index }
 
     for (const elem of deque) {
       elem.begin -= confirmed_index;
@@ -435,7 +444,7 @@ export class AhoCorasick {
 
   public *replaceSync(iterable: Iterable<string>, replacer: Replacer, boundary?: BoundaryFunc): Iterable<string> {
     const deque = new Deque<Match>();
-    const ring = new RingBuffer<string>(this.maxKeywordLength + 2);
+    const ring = new RingBuffer<string>(this.ringbufferCapacity);
 
     let state: Trie = this.root;
     const collector = new Collector();
@@ -449,7 +458,7 @@ export class AhoCorasick {
 
   public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer, boundary?: BoundaryFunc): AsyncIterable<string> {
     const deque = new Deque<Match>();
-    const ring = new RingBuffer<string>(this.maxKeywordLength + 2);
+    const ring = new RingBuffer<string>(this.ringbufferCapacity);
 
     let state: Trie = this.root;
     const collector = new Collector();
@@ -463,7 +472,7 @@ export class AhoCorasick {
 
   public async *replaceAsyncToMaybePromise(iterable: AsyncIterable<string>, replacer: AsyncableReplacer, boundary?: BoundaryFunc): AsyncIterable<string> {
     const deque = new Deque<Match>();
-    const ring = new RingBuffer<string>(this.maxKeywordLength + 2);
+    const ring = new RingBuffer<string>(this.ringbufferCapacity);
 
     let state: Trie = this.root;
     const collector = new Collector();

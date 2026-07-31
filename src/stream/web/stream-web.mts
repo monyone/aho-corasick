@@ -12,7 +12,7 @@ export class AhoCorasick extends AhoCorasickBase {
   public replaceStream(replacer: Replacer, boundary?: BoundaryFunc): TransformStream<string, string> {
     const aho = this;
     const deque = new Deque<Match>();
-    const ring = new RingBuffer<string>(this.maxKeywordLength + 2);
+    const ring = new RingBuffer<string>(this.ringbufferCapacity);
 
     let state = this.root;
     const collector = new Collector();
@@ -39,7 +39,7 @@ export class AhoCorasick extends AhoCorasickBase {
   public replaceStreamAsync(replacer: AsyncableReplacer, boundary?: BoundaryFunc): TransformStream<string, string> {
     const aho = this;
     const deque = new Deque<Match>();
-    const ring = new RingBuffer<string>(this.maxKeywordLength + 2);
+    const ring = new RingBuffer<string>(this.ringbufferCapacity);
 
     let state = this.root;
     const collector = new Collector();
