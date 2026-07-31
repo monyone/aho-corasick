@@ -1,6 +1,6 @@
 import { test, expect, describe } from 'vitest';
 
-import { AhoCorasick } from '../../src/stream/stream.mts'
+import { AhoCorasick, Replacer, Boundary } from '../../src/stream/stream.mts'
 import { AhoCorasick as AhoCorasickWebStream } from '../../src/stream/web/stream-web.mts'
 import { AhoCorasick as AhoCorasickNodeStream } from '../../src/stream/node/stream-node.mts'
 
@@ -419,5 +419,230 @@ describe('replaceSync', () => {
     });
 
     expect(result).toBe('nomatch here [match1] and [match2] plus [match3]');
+  });
+});
+
+describe('replace boundary (left / right)', () => {
+  // replacer that records the boundary chars it receives and renders them
+  const recordFn = (log: Array<{ m: string, l: string | null, r: string | null }>) =>
+    (m: string, l?: string, r?: string) => {
+      log.push({ m, l: l ?? null, r: r ?? null });
+      return `[${l ?? '_'}${m}${r ?? '_'}]`;
+    };
+
+  test('single match in the middle of one chunk', () => {
+    const aho = new AhoCorasick(['abc']);
+    const log: Array<{ m: string, l: string | null, r: string | null }> = [];
+    const out = Array.from(aho.replaceSync(['x abc y'], recordFn(log))).join('');
+    expect(log).toEqual([{ m: 'abc', l: ' ', r: ' ' }]);
+    expect(out).toBe('x [ abc ] y');
+  });
+
+  test('match at the very start has left = null', () => {
+    const aho = new AhoCorasick(['abc']);
+    const log: Array<{ m: string, l: string | null, r: string | null }> = [];
+    Array.from(aho.replaceSync(['abcZ'], recordFn(log))).join('');
+    expect(log).toEqual([{ m: 'abc', l: null, r: 'Z' }]);
+  });
+
+  test('match at the very end has right = null', () => {
+    const aho = new AhoCorasick(['abc']);
+    const log: Array<{ m: string, l: string | null, r: string | null }> = [];
+    Array.from(aho.replaceSync(['Zabc'], recordFn(log))).join('');
+    expect(log).toEqual([{ m: 'abc', l: 'Z', r: null }]);
+  });
+
+  test('left char comes from the previous chunk', () => {
+    const aho = new AhoCorasick(['abc']);
+    const log: Array<{ m: string, l: string | null, r: string | null }> = [];
+    Array.from(aho.replaceSync(['X', 'abcY'], recordFn(log))).join('');
+    expect(log).toEqual([{ m: 'abc', l: 'X', r: 'Y' }]);
+  });
+
+  test('right char comes from the next chunk', () => {
+    const aho = new AhoCorasick(['abc']);
+    const log: Array<{ m: string, l: string | null, r: string | null }> = [];
+    Array.from(aho.replaceSync(['Xabc', 'Y'], recordFn(log))).join('');
+    expect(log).toEqual([{ m: 'abc', l: 'X', r: 'Y' }]);
+  });
+
+  test('adjacent matches: left of second is last char of first', () => {
+    const aho = new AhoCorasick(['abc', 'def']);
+    const log: Array<{ m: string, l: string | null, r: string | null }> = [];
+    Array.from(aho.replaceSync(['abcdef'], recordFn(log))).join('');
+    expect(log).toEqual([
+      { m: 'abc', l: null, r: 'd' },
+      { m: 'def', l: 'c', r: null },
+    ]);
+  });
+
+  test('match split across many tiny chunks keeps correct boundaries', () => {
+    const aho = new AhoCorasick(['abc']);
+    const log: Array<{ m: string, l: string | null, r: string | null }> = [];
+    Array.from(aho.replaceSync(['X', 'a', 'b', 'c', 'Y'], recordFn(log))).join('');
+    expect(log).toEqual([{ m: 'abc', l: 'X', r: 'Y' }]);
+  });
+
+  test('Replacer.WithBoundary only replaces when the boundary predicate passes', () => {
+    const aho = new AhoCorasick(['cat']);
+    // only replace when it is a standalone word (left/right are not letters)
+    const isWord = (letter: string | null) => letter === null || !/[a-z]/.test(letter);
+    const replacer = Replacer.WithBoundary(
+      (_m, l, r) => isWord(l) && isWord(r),
+      () => 'DOG',
+    );
+    const out = Array.from(aho.replaceSync(['a cat and category'], replacer)).join('');
+    // "cat" as a word is replaced; the "cat" inside "category" is kept
+    expect(out).toBe('a DOG and category');
+  });
+
+  test('boundary info reaches an async replacer', async () => {
+    const aho = new AhoCorasick(['abc']);
+    const log: Array<{ m: string, l: string | null, r: string | null }> = [];
+    async function* chunks() { yield 'X'; yield 'abcY'; }
+    const parts: string[] = [];
+    for await (const p of aho.replaceAsync(chunks(), (m: string, l?: string, r?: string) => {
+      log.push({ m, l: l ?? null, r: r ?? null });
+      return `[${l ?? '_'}${m}${r ?? '_'}]`;
+    })) {
+      parts.push(p);
+    }
+    expect(log).toEqual([{ m: 'abc', l: 'X', r: 'Y' }]);
+    expect(parts.join('')).toBe('X[XabcY]Y');
+  });
+});
+
+describe('Boundary.WhiteSpace', () => {
+  const whole = (replacement: string) =>
+    Replacer.WithBoundary(Boundary.WhiteSpace(), () => replacement);
+
+  test('replaces a space-delimited word', () => {
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['a cat and category'], whole('DOG'))).join('');
+    expect(out).toBe('a DOG and category');
+  });
+
+  test('word at start and end of text', () => {
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['cat and cat'], whole('DOG'))).join('');
+    expect(out).toBe('DOG and DOG');
+  });
+
+  test('non-whitespace punctuation is NOT a boundary (unlike AsciiWord)', () => {
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['(cat) cat'], whole('DOG'))).join('');
+    // '(' and ')' are not whitespace, so "(cat)" is not a whole word
+    expect(out).toBe('(cat) DOG');
+  });
+
+  test('tabs and newlines count as boundaries', () => {
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['\tcat\ncat '], whole('DOG'))).join('');
+    expect(out).toBe('\tDOG\nDOG ');
+  });
+
+  test('boundary spanning chunk edges', () => {
+    const aho = new AhoCorasick(['cat']);
+    // text is "x cat cat" split across chunks; both cats are space-delimited
+    const out = Array.from(aho.replaceSync(['x cat', ' ca', 't'], whole('DOG'))).join('');
+    expect(out).toBe('x DOG DOG');
+  });
+});
+
+describe('Boundary.AsciiWord', () => {
+  const wholeWord = (replacement: string) =>
+    Replacer.WithBoundary(Boundary.AsciiTerm(), () => replacement);
+
+  test('replaces standalone word but keeps substring inside a larger word', () => {
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['a cat and category'], wholeWord('DOG'))).join('');
+    expect(out).toBe('a DOG and category');
+  });
+
+  test('word at the very start is replaced', () => {
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['cat sat'], wholeWord('DOG'))).join('');
+    expect(out).toBe('DOG sat');
+  });
+
+  test('word at the very end is replaced', () => {
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['the cat'], wholeWord('DOG'))).join('');
+    expect(out).toBe('the DOG');
+  });
+
+  test('brackets and spaces count as boundaries', () => {
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['(cat) cat'], wholeWord('DOG'))).join('');
+    expect(out).toBe('(DOG) DOG');
+  });
+
+  test('adjacent word characters (letters and digits) block the match', () => {
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['cat1 scat concatenate'], wholeWord('DOG'))).join('');
+    expect(out).toBe('cat1 scat concatenate');
+  });
+
+  test('underscore is a word character and blocks the match', () => {
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['_cat_ cat'], wholeWord('DOG'))).join('');
+    expect(out).toBe('_cat_ DOG');
+  });
+
+  test('technical-term symbols (&, +, #, ., -) are word characters and block the match', () => {
+    const aho = new AhoCorasick(['cat']);
+    // '.' '&' '+' '#' '-' adjacent to cat mean it is part of a larger term
+    const out = Array.from(aho.replaceSync(['cat.js cat&dog cat+ #cat co-cat cat'], wholeWord('DOG'))).join('');
+    expect(out).toBe('cat.js cat&dog cat+ #cat co-cat DOG');
+  });
+
+  test('a keyword that is itself a technical term matches on symbol boundaries', () => {
+    const aho = new AhoCorasick(['C&C']);
+    const out = Array.from(aho.replaceSync(['use C&C here', 'C&C.'], wholeWord('X'))).join('');
+    // "C&C" surrounded by spaces / '.' -> '.' is a word char so the 2nd is blocked
+    expect(out).toBe('use X hereC&C.');
+  });
+
+  test('a symbol-containing keyword is matched as a whole term', () => {
+    const aho = new AhoCorasick(['.net']);
+    const out = Array.from(aho.replaceSync(['use .net and a.net'], wholeWord('X'))).join('');
+    // ".net" delimited by spaces is a whole term; "a.net" is part of a larger term
+    expect(out).toBe('use X and a.net');
+  });
+
+  test('non-ASCII keywords are never subject to the whole-word check', () => {
+    const aho = new AhoCorasick(['東京']);
+    const out = Array.from(aho.replaceSync(['東京と東京都'], wholeWord('X'))).join('');
+    // Japanese is not word-delimited, so both occurrences match
+    expect(out).toBe('XとX都');
+  });
+
+  test('boundary that spans chunk edges is respected', () => {
+    const aho = new AhoCorasick(['cat']);
+    // text is "scat cat" split so both boundaries of the 2nd "cat" span chunk edges:
+    // left ' ' (prev chunk) allows, right null (end) allows -> replaced;
+    // the 1st "cat" is preceded by 's' (prev chunk) -> blocked.
+    const out = Array.from(aho.replaceSync(['s', 'cat', ' ca', 't'], wholeWord('DOG'))).join('');
+    expect(out).toBe('scat DOG');
+  });
+});
+
+describe('Boundary.By', () => {
+  test('custom separator regex controls the boundary', () => {
+    // only '/' separates words
+    const boundary = Boundary.By(/\//);
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['/cat/ a cat'], Replacer.WithBoundary(boundary, () => 'X'))).join('');
+    // "/cat/" is delimited by '/' on both sides -> replaced;
+    // " cat" ends the text (right ok) but left is ' ' which is NOT a separator -> kept
+    expect(out).toBe('/X/ a cat');
+  });
+
+  test('whitespace separator reproduces WhiteSpace behaviour', () => {
+    const boundary = Boundary.By(/\s/); // split on whitespace
+    const aho = new AhoCorasick(['cat']);
+    const out = Array.from(aho.replaceSync(['(cat) cat'], Replacer.WithBoundary(boundary, () => 'X'))).join('');
+    // '(' and ')' are not separators, so "(cat)" is not whole; standalone "cat" is
+    expect(out).toBe('(cat) X');
   });
 });

@@ -2,12 +2,35 @@ import Collector from "./collector.mts";
 import Deque from "./deque.mts";
 
 export type Match = { begin: number, end: number, keyword: string };
-type ReplaceFunc = ((detect: string) => (string | false));
-type AsyncableReplaceFunc = ((detect: string) => Promise<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
+
+type ReplaceFunc = ((detect: string, left?: string, right?: string) => (string | false));
+type AsyncableReplaceFunc = ((detect: string, left?: string, right?: string) => Promise<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
 export type Replacer = Record<string, string> | Map<string, string> | ReplaceFunc;
 export type AsyncableReplacer = Replacer | AsyncableReplaceFunc;
+export type BoundaryFunc = (detect: string, left: string | null, right: string | null) => boolean;
 
-const handleReplacer = (detect: string, replacer: Replacer): string => {
+export const Boundary = {
+  WhiteSpace: (): BoundaryFunc => {
+    const isBoundary = (ch: string | null) => ch == null || /\s/.test(ch);
+    return (_, left, right) => isBoundary(left) && isBoundary(right);
+  },
+  AsciiTerm: (): BoundaryFunc => {
+    const isAsciiChar = (ch: string) => /[A-Za-z0-9_&#+.-]/.test(ch);
+    const isAsciiTerm = (ch: string) => /^[A-Za-z0-9_&#+.-]+$/.test(ch);
+    const isBoundary = (ch: string | null) => ch == null || !isAsciiChar(ch);
+    return (detect, left, right) => {
+      if (!isAsciiTerm(detect)) { return true; }
+      if (isBoundary(left) && isBoundary(right)) { return true; }
+      return false;
+    };
+  },
+  By: (separator: RegExp): BoundaryFunc => {
+    const isBoundary = (ch: string | null) => ch == null || separator.test(ch);
+    return (_, left, right) => isBoundary(left) && isBoundary(right);
+  },
+} as const satisfies Record<string, (...args: any[]) => BoundaryFunc>;
+
+const handleReplacer = (detect: string, left: string | null, right: string | null, replacer: Replacer): string => {
   if (replacer instanceof Map) {
     return replacer.get(detect) ?? detect;
   } else if (typeof(replacer) === 'object') {
@@ -17,12 +40,12 @@ const handleReplacer = (detect: string, replacer: Replacer): string => {
       return detect;
     }
   } else {
-    const replaced = replacer(detect);
+    const replaced = replacer(detect, left ?? undefined, right ?? undefined);
     return replaced !== false ? replaced ?? detect : detect;
   }
 };
 
-const handleAsyncableReplacer = (detect: string, replacer: AsyncableReplacer): string | Promise<string> => {
+const handleAsyncableReplacer = (detect: string, left: string | null, right: string | null, replacer: AsyncableReplacer): string | Promise<string> => {
   if (replacer instanceof Map) {
     return replacer.get(detect) ?? detect;
   } else if (typeof(replacer) === 'object') {
@@ -32,7 +55,7 @@ const handleAsyncableReplacer = (detect: string, replacer: AsyncableReplacer): s
       return detect;
     }
   } else {
-    const replaced = replacer(detect);
+    const replaced = replacer(detect, left ?? undefined, right ?? undefined);
     if (replaced instanceof Promise) {
       return replaced.then((replaced) => {
         return replaced !== false ? replaced ?? detect: detect;
@@ -47,24 +70,36 @@ export const Replacer = {
   Keep: () => (() => false),
   Delete: () => (() => ''),
   Mask: (ch: string) => ((str: string) => ch.repeat(str.length)),
+  WithBoundary: (boundary: BoundaryFunc, replacer: Replacer) => {
+    return (str: string, left?: string, right?: string) => {
+      if (!boundary(str, left ?? null, right ?? null)) { return false;}
+      return handleReplacer(str, left ?? null, right ?? null, replacer);
+    }
+  },
   Once: (replacer: Replacer) => {
     const set = new Set<string>();
-    return (str: string) => {
+    return (str: string, left?: string, right?: string) => {
       if (set.has(str)) { return false; }
       set.add(str);
-      return handleReplacer(str, replacer);
+      return handleReplacer(str, left ?? null, right ?? null, replacer);
     };
   },
 } as const satisfies Record<string, (...args: any[]) => Replacer>;
 
 export const AsyncableReplacer = {
   ... Replacer,
+  WithBoundary: (boundary: BoundaryFunc, replacer: AsyncableReplacer) => {
+    return (str: string, left?: string, right?: string) => {
+      if (!boundary(str, left ?? null, right ?? null)) { return false;}
+      return handleAsyncableReplacer(str, left ?? null, right ?? null, replacer);
+    }
+  },
   Once: (replacer: AsyncableReplacer) => {
     const set = new Set<string>();
-    return (str: string) => {
+    return (str: string, left?: string, right?: string) => {
       if (set.has(str)) { return false; }
       set.add(str);
-      return handleAsyncableReplacer(str, replacer);
+      return handleAsyncableReplacer(str, left ?? null, right ?? null, replacer);
     };
   },
 } as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
@@ -252,8 +287,10 @@ export class AhoCorasick {
           if (output_begin < first.begin) {
             yield* collector.take(first.begin - output_begin);
           }
-          yield handleReplacer(first.keyword, replacer);
+          const left = collector.tail();
           collector.skip(first.end - first.begin);
+          const right = collector.peek();
+          yield handleReplacer(first.keyword, left, right, replacer);
           output_begin = first.end;
 
           deque.pollFirst()!;
@@ -316,8 +353,10 @@ export class AhoCorasick {
             yield* collector.take(first.begin - output_begin);
           }
           {
-            const replaced = handleAsyncableReplacer(first.keyword, replacer);
+            const left = collector.tail();
             collector.skip(first.end - first.begin);
+            const right = collector.peek();
+            const replaced = handleAsyncableReplacer(first.keyword, left, right, replacer);
             yield !(replaced instanceof Promise) ? replaced : await replaced;
           }
           output_begin = first.end;
@@ -367,8 +406,11 @@ export class AhoCorasick {
       if (output_begin < first.begin) {
         yield* collector.take(first.begin - output_begin);
       }
-      yield handleReplacer(first.keyword, replacer);
+      const left = collector.tail();
       collector.skip(first.end - first.begin);
+      const right = collector.peek();
+      yield handleReplacer(first.keyword, left, right, replacer);
+
       output_begin = first.end;
 
       deque.pollFirst()!;
@@ -387,8 +429,10 @@ export class AhoCorasick {
         yield* collector.take(first.begin - output_begin);
       }
       {
-        const replaced = handleAsyncableReplacer(first.keyword, replacer);
+        const left = collector.tail();
         collector.skip(first.end - first.begin);
+        const right = collector.peek();
+        const replaced = handleAsyncableReplacer(first.keyword, left, right, replacer);
         yield !(replaced instanceof Promise) ? replaced : await replaced;
       }
       output_begin = first.end;

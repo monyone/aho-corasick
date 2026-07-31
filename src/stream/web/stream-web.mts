@@ -3,7 +3,8 @@ import Deque from "../deque.mts";
 import { AhoCorasick as AhoCorasickBase } from "../stream.mts";
 import type { Replacer, AsyncableReplacer, Match } from "../stream.mts";
 
-export { Replacer, AsyncableReplacer } from "../stream.mts";
+export { Replacer, AsyncableReplacer, Boundary } from "../stream.mts";
+export type { BoundaryFunc } from "../stream.mts";
 
 export class AhoCorasick extends AhoCorasickBase {
 
