@@ -82,10 +82,12 @@ export const Boundary = {
     const isBoundary = (ch: string) => /\s/.test(ch);
     return (_, left, right) => isBoundary(left) || isBoundary(right);
   },
-  AsciiTerm: (): BoundaryFunc => {
+  AsciiTerm: (prefill?: string[]): BoundaryFunc => {
     const isAsciiChar = (ch: string) => /[A-Za-z0-9_&#+.-]/.test(ch);
     const isAsciiTerm = (term: string) => /^[A-Za-z0-9_&#+.-](?:[A-Za-z0-9_&#+.\s-]*[A-Za-z0-9_&#+.-])?$/.test(term);
-    const isAsciiTermCache = new Map<string, boolean>();
+    const isAsciiTermCache = new Map<string, boolean>(
+      (prefill ?? []).map((keyword) => [keyword, isAsciiTerm(keyword)])
+    );
     return (detect, left, right) => {
       const asciiTermCache = isAsciiTermCache.get(detect);
       if (asciiTermCache === false) { return true; }
