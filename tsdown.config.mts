@@ -6,9 +6,9 @@ export default defineConfig({
     'src/fast.mts',
     'src/greedy/greedy.mts',
     'src/greedy/fast.mts',
-    'src/stream/stream.mts',
-    'src/stream/web/stream-web.mts',
-    'src/stream/node/stream-node.mts',
+    'src/stream/replace.mts',
+    'src/stream/web/replace-web.mts',
+    'src/stream/node/replace-node.mts',
   ],
   deps: {
     neverBundle: [/^node:/],
