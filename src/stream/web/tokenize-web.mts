@@ -7,9 +7,9 @@ import { AbstractStreamAhoCorasick, type Match } from "../base.mts";
 export { Boundary } from "../base.mts";
 export type { BoundaryFunc, Match } from "../base.mts";
 
-export class AhoCorasick<T, K> extends AbstractStreamAhoCorasick<T, K> {
+export class AhoCorasick extends AbstractStreamAhoCorasick {
 
-  public tokenizeStream(normal: (chunk: string) => T, target: (keyword: string) => K, boundary?: BoundaryFunc): TransformStream<string, T | K> {
+  public tokenizeStream<T, K>(normal: (chunk: string) => T, target: (keyword: string) => K, boundary?: BoundaryFunc): TransformStream<string, T | K> {
     const aho = this;
     const deque = new Deque<Match>();
     const ring = new RingBuffer<string>(this.ringbufferCapacity);
@@ -38,7 +38,7 @@ export class AhoCorasick<T, K> extends AbstractStreamAhoCorasick<T, K> {
     });
   }
 
-  public tokenizeStreamAsync(normal: (chunk: string) => T, target: (keyword: string) => K | Promise<K>, boundary?: BoundaryFunc): TransformStream<string, T | K> {
+  public tokenizeStreamAsync<T, K>(normal: (chunk: string) => T, target: (keyword: string) => K | Promise<K>, boundary?: BoundaryFunc): TransformStream<string, T | K> {
     const aho = this;
     const deque = new Deque<Match>();
     const ring = new RingBuffer<string>(this.ringbufferCapacity);

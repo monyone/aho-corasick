@@ -86,7 +86,7 @@ export class Trie {
     this.keyword ??= t?.keyword ?? null;
   }
 }
-export abstract class AbstractStreamAhoCorasick<T, K> {
+export abstract class AbstractStreamAhoCorasick {
   protected root = new Trie();
   protected failure_link = new Map<Trie, Trie>();
   protected readonly maxKeywordLength: number = 0;
@@ -184,7 +184,7 @@ export abstract class AbstractStreamAhoCorasick<T, K> {
     }
   }
 
-  protected *processTextSync(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, chunk: string, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>, boundary?: BoundaryFunc): Generator<T | K, [trie: Trie, confirmed_offset: number], unknown> {
+  protected *processTextSync<T, K>(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, chunk: string, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>, boundary?: BoundaryFunc): Generator<T | K, [trie: Trie, confirmed_offset: number], unknown> {
     let state = trie;
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
@@ -227,7 +227,7 @@ export abstract class AbstractStreamAhoCorasick<T, K> {
     confirmed_offset = this.maintainAmortization(deque, ring, collector, confirmed_index);
     return [state, confirmed_offset];
   }
-  protected async *processTextAsync(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, chunk: string, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>, boundary?: BoundaryFunc): AsyncGenerator<T | K, [trie: Trie, confirmed_offset: number], unknown> {
+  protected async *processTextAsync<T, K>(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, chunk: string, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>, boundary?: BoundaryFunc): AsyncGenerator<T | K, [trie: Trie, confirmed_offset: number], unknown> {
     let state = trie;
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
@@ -274,7 +274,7 @@ export abstract class AbstractStreamAhoCorasick<T, K> {
     return [state, confirmed_offset];
   }
 
-  protected *cleanupTextSync(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>, boundary?: BoundaryFunc): Iterable<T | K> {
+  protected *cleanupTextSync<T, K>(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>, boundary?: BoundaryFunc): Iterable<T | K> {
     const state = trie;
     const remain_offset = collector.length;
     this.maintainDeque(state, deque, ring, 0, remain_offset, boundary);
@@ -298,7 +298,7 @@ export abstract class AbstractStreamAhoCorasick<T, K> {
       yield* collect(output_begin, collector.length);
     }
   }
-  protected async *cleanupTextAsync(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>, boundary?: BoundaryFunc): AsyncIterable<T | K> {
+  protected async *cleanupTextAsync<T, K>(trie: Trie, deque: Deque<Match>, ring: RingBuffer<string>, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>, boundary?: BoundaryFunc): AsyncIterable<T | K> {
     const state = trie;
     const remain_offset = collector.length;
     this.maintainDeque(state, deque, ring, 0, remain_offset, boundary);

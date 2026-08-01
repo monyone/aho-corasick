@@ -72,7 +72,7 @@ export const AsyncableReplacer = {
   },
 } as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
 
-export class AhoCorasick extends AbstractStreamAhoCorasick<string, string> {
+export class AhoCorasick extends AbstractStreamAhoCorasick {
   constructor(keywords: string[]) {
     super(keywords);
   }

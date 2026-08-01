@@ -6,12 +6,12 @@ import type { BoundaryFunc, Match } from "./base.mts";
 
 export type { Match } from './base.mts';
 
-export class AhoCorasick<T, K> extends AbstractStreamAhoCorasick<T, K> {
+export class AhoCorasick extends AbstractStreamAhoCorasick {
   constructor(keywords: string[]) {
     super(keywords);
   }
 
-  public *tokenizeSync(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, boundary?: BoundaryFunc): Iterable<T | K> {
+  public *tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, boundary?: BoundaryFunc): Iterable<T | K> {
     const deque = new Deque<Match>();
     const ring = new RingBuffer<string>(this.ringbufferCapacity);
     const collector = new Collector();
@@ -27,7 +27,7 @@ export class AhoCorasick<T, K> extends AbstractStreamAhoCorasick<T, K> {
     yield* this.cleanupTextSync(state, deque, ring, confirmed_offset, collector, collect, detect, boundary);
   }
 
-  public async *tokenizeAsync(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, boundary?: BoundaryFunc): AsyncIterable<T | K> {
+  public async *tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, boundary?: BoundaryFunc): AsyncIterable<T | K> {
     const deque = new Deque<Match>();
     const ring = new RingBuffer<string>(this.ringbufferCapacity);
     const collector = new Collector();
