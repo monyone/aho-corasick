@@ -7,7 +7,9 @@ export default defineConfig({
     'src/greedy/greedy.mts',
     'src/greedy/fast.mts',
     'src/stream/replace.mts',
+    'src/stream/tokenize.mts',
     'src/stream/web/replace-web.mts',
+    'src/stream/web/tokenize-web.mts',
     'src/stream/node/replace-node.mts',
   ],
   deps: {
