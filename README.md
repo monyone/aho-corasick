@@ -45,30 +45,67 @@ const ahocorasick = new AhoCorasick(keywords);
 const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matchInText(text);
 ```
 
-### Greedy (Leftmost-Longest) Streaming Variant
+### Streaming Replace (Leftmost-Longest)
+```ts
+import { AhoCorasick, Boundary } from '@monyone/aho-corasick/stream';
+
+const ahocorasick = new AhoCorasick(['cat']);
+
+Array.from(
+  ahocorasick.replaceSync(['a cat and category'], () => 'DOG')
+)
+// ['a DOG and DOGegory']
+```
+
+
+#### Word Boundaries
+```ts
+import { AhoCorasick, Boundary } from '@monyone/aho-corasick/stream';
+
+const ahocorasick = new AhoCorasick(['cat']);
+
+Array.from(
+  ahocorasick.replaceSync(['a cat and category'], () => 'DOG', Boundary.AsciiEdge())
+)
+// ['a DOG and category']
+```
 
 #### With Node.js Stream API
 ```ts
-import { AhoCorasick } from '@monyone/aho-corasick/stream';
+import { AhoCorasick } from '@monyone/aho-corasick/stream/node';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { Readable } from 'node:stream';
 
-const ahocorasick = new AhoCorasick(keywords);
+const ahocorasick = new AhoCorasick(['example', 'Example']);
 const input = createReadStream('input.txt', { encoding: 'utf-8' });
 const output = createWriteStream('output.txt', { encoding: 'utf-8' });
-const readable = Readable.from(ahocorasick.replaceAsync(input, (key) => '#'.repeat(key.length)));
-readable.pipe(output);
+
+input.pipe(ahocorasick.replaceStream((key) => '#'.repeat(key.length))).pipe(output);
 ```
 
-#### With fetch
+#### With Web Streams / fetch
 ```ts
-import { AhoCorasick } from '@monyone/aho-corasick/stream';
+import { AhoCorasick } from '@monyone/aho-corasick/stream/web';
 
 const ahocorasick = new AhoCorasick(['example', 'Example']);
 const input = (await fetch('http://example.com')).body!.pipeThrough(new TextDecoderStream());
-const readable = ReadableStream.from(ahocorasick.replaceAsync(stream, (key) => '#'.repeat(key.length)));
+
+const replaced = input.pipeThrough(ahocorasick.replaceStream((key) => '#'.repeat(key.length)));
 ```
 
+### Streaming Tokenize
+
+```ts
+import { AhoCorasick } from '@monyone/aho-corasick/stream/tokenize';
+
+const ahocorasick = new AhoCorasick(['cat', 'dog']);
+
+const tokens = Array.from(ahocorasick.tokenizeSync(
+  ['a cat and a dog'],
+  (text) => ({ type: 'text', value: text }),
+  (keyword) => ({ type: 'match', keyword }),
+));
+// [{type:'text',value:'a '}, {type:'match',keyword:'cat'}, {type:'text',value:' and a '}, {type:'match',keyword:'dog'}]
+```
 
 ### More Faster Search (Double Array)
 DAT (Double Array Trie) Based Aho-Corasick implementation

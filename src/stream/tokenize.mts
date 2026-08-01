@@ -4,7 +4,8 @@ import Deque from "./deque.mts";
 import RingBuffer from "./ringbuffer.mts";
 import type { BoundaryFunc, Match } from "./base.mts";
 
-export type { Match } from './base.mts';
+export { Boundary } from './base.mts';
+export type { BoundaryFunc, Match } from './base.mts';
 
 export class AhoCorasick extends AbstractStreamAhoCorasick {
   constructor(keywords: string[]) {

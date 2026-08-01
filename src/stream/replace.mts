@@ -8,7 +8,8 @@ type ReplaceFunc = ((detect: string) => (string | false));
 type AsyncableReplaceFunc = ((detect: string) => Promise<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
 export type Replacer = Record<string, string> | Map<string, string> | ReplaceFunc;
 export type AsyncableReplacer = Replacer | AsyncableReplaceFunc;
-export type { Match } from './base.mts';
+export { Boundary } from './base.mts';
+export type { BoundaryFunc, Match } from './base.mts';
 
 export const handleReplacer = (detect: string, replacer: Replacer): string => {
   if (replacer instanceof Map) {
