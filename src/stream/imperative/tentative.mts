@@ -4,7 +4,7 @@ import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleRe
 import Collector from "../collector.mts";
 import RingBuffer from "../ringbuffer.mts";
 import { AbstractStreamTentativeAhoCorasick, type Match } from "../base.mts";
-import type { ImperativeResult } from "./normal.mts";
+import type { AsyncImperativeResult, ImperativeResult } from "./normal.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
@@ -23,6 +23,20 @@ const ImperativeWithTentativeHandle = {
     return { write, end };
   }
 }
+
+export type AsyncImperativeWithTentativeResult<T, K, U> = Promise<{
+  confirmed : ImperativeResult<T, K>;
+  tentative: U;
+}>;
+export type AsyncImperativeWithTentativeHandle<T, K, U> = {
+  write(chunk: string): AsyncImperativeWithTentativeResult<T, K, U>;
+  end(): AsyncImperativeResult<T, K>;
+};
+const AsyncImperativeWithTentativeHandle = {
+  from<T, K, U>(write: (chunk: string) => AsyncImperativeWithTentativeResult<T, K, U>, end: () => AsyncImperativeResult<T, K>): AsyncImperativeWithTentativeHandle<T, K, U> {
+    return { write, end };
+  }
+};
 
 export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
   public replaceSync(replacer: Replacer, boundary?: BoundaryFunc): ImperativeWithTentativeHandle<string, string, string> {
@@ -54,7 +68,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
     return ImperativeWithTentativeHandle.from<string, string, string>(write, end);
   }
 
-  public replaceAsync(replacer: AsyncableReplacer, boundary?: BoundaryFunc): ImperativeWithTentativeHandle<string, string | Promise<string>, string> {
+  public replaceAsync(replacer: AsyncableReplacer, boundary?: BoundaryFunc): AsyncImperativeWithTentativeHandle<string, string, string> {
     const deque = new Deque<Match>();
     const ring = new RingBuffer<string>(this.ringbufferCapacity);
     const collector = new Collector();
@@ -64,23 +78,27 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
     let state = this.root;
     let confirmed_offset = 0;
 
-    const write = (chunk: string): ImperativeWithTentativeResult<string, string | Promise<string>, string> => {
-      const generator = this.processTextSync(state, deque, ring, chunk, confirmed_offset, collector, collect, detect, boundary);
-      const confirmed : ImperativeResult<string, string | Promise<string>> = []
+    const write = async (chunk: string): AsyncImperativeWithTentativeResult<string, string, string> => {
+      const generator = this.processTextAsync(state, deque, ring, chunk, confirmed_offset, collector, collect, detect, boundary);
+      const confirmed : ImperativeResult<string, string> = []
       while (true) {
-        const { value, done } = generator.next();
+        const { value, done } = await generator.next();
         if (done) {
           [state, confirmed_offset] = value;
           break;
         }
         confirmed .push(value);
       }
-      return { confirmed , tentative: this.tentative.get(state)! }
+      return { confirmed, tentative: this.tentative.get(state)! }
     };
-    const end = (): ImperativeResult<string, string | Promise<string>> => {
-      return Array.from(this.cleanupTextSync(state, deque, ring, confirmed_offset, collector, collect, detect, boundary));
+    const end = async (): AsyncImperativeResult<string, string> => {
+      const confirmed : ImperativeResult<string, string> = []
+      for await (const chunk of this.cleanupTextAsync(state, deque, ring, confirmed_offset, collector, collect, detect, boundary)) {
+        confirmed.push(chunk);
+      }
+      return confirmed
     };
-    return ImperativeWithTentativeHandle.from<string, string | Promise<string>, string>(write, end);
+    return AsyncImperativeWithTentativeHandle.from<string, string, string>(write, end);
   }
 
   public tokenizeSync<T, K, U>(normal: (chunk: string) => T, target: (keyword: string) => K, tentative: (tentative: string) => U, boundary?: BoundaryFunc): ImperativeWithTentativeHandle<T, K, U> {
@@ -112,7 +130,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
     return ImperativeWithTentativeHandle.from<T, K, U>(write, end);
   }
 
-  public tokenizeAsync<T, K, U>(normal: (chunk: string) => T, target: (keyword: string) => K | Promise<K>, tentative: (tentative: string) => U, boundary?: BoundaryFunc): ImperativeWithTentativeHandle<T, K | Promise<K>, U> {
+  public tokenizeAsync<T, K, U>(normal: (chunk: string) => T, target: (keyword: string) => K | Promise<K>, tentative: (tentative: string) => U, boundary?: BoundaryFunc): AsyncImperativeWithTentativeHandle<T, K, U> {
     const deque = new Deque<Match>();
     const ring = new RingBuffer<string>(this.ringbufferCapacity);
     const collector = new Collector();
@@ -122,11 +140,11 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
     let state = this.root;
     let confirmed_offset = 0;
 
-    const write = (chunk: string): ImperativeWithTentativeResult<T, K | Promise<K>, U> => {
-      const generator = this.processTextSync(state, deque, ring, chunk, confirmed_offset, collector, collect, detect, boundary);
-      const confirmed : ImperativeResult<T, K | Promise<K>> = []
+    const write = async (chunk: string): AsyncImperativeWithTentativeResult<T, K, U> => {
+      const generator = this.processTextAsync(state, deque, ring, chunk, confirmed_offset, collector, collect, detect, boundary);
+      const confirmed : ImperativeResult<T, K> = []
       while (true) {
-        const { value, done } = generator.next();
+        const { value, done } = await generator.next();
         if (done) {
           [state, confirmed_offset] = value;
           break;
@@ -135,10 +153,14 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
       }
       return { confirmed , tentative: tentative(this.tentative.get(state)!) }
     };
-    const end = (): ImperativeResult<T, K | Promise<K>> => {
-      return Array.from(this.cleanupTextSync(state, deque, ring, confirmed_offset, collector, collect, detect, boundary));
+    const end = async (): AsyncImperativeResult<T, K> => {
+      const confirmed : ImperativeResult<T, K> = []
+      for await (const chunk of this.cleanupTextAsync(state, deque, ring, confirmed_offset, collector, collect, detect, boundary)) {
+        confirmed.push(chunk);
+      }
+      return confirmed
     };
-    return ImperativeWithTentativeHandle.from<T, K | Promise<K>, U>(write, end);
+    return AsyncImperativeWithTentativeHandle.from<T, K, U>(write, end);
   }
 }
 
