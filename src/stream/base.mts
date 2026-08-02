@@ -347,7 +347,10 @@ export abstract class AbstractStreamTentativeAhoCorasick extends AbstractStreamA
         if (!current.empty()) {
           target = current.value()!;
         }
+        // 本当は string に対する view で範囲を縮めて見れれば一番いいんだけど...
+        // slice は Node, Deno, Bun で slice をとると CoW でそういう挙動をしてくれる
         this.tentative.set(current, target.slice(0, current.depth));
+        // あと、これに O(N) かかったとしても、検索時の劣化がなければ別にいい
 
         current = current.parent!;
       }
