@@ -1,9 +1,9 @@
 import { test, expect, describe } from 'vitest';
 
-import { AhoCorasick, Replacer } from '../../src/stream/replace.mts'
+import { AhoCorasick, Replacer } from '../../src/stream/stream.mts'
 import { Boundary, type BoundaryFunc } from '../../src/stream/base.mts'
-import { AhoCorasick as AhoCorasickWebStream } from '../../src/stream/web/replace-web.mts'
-import { AhoCorasick as AhoCorasickNodeStream } from '../../src/stream/node/replace-node.mts'
+import { AhoCorasick as AhoCorasickWebStream } from '../../src/stream/web/stream-web.mts'
+import { AhoCorasick as AhoCorasickNodeStream } from '../../src/stream/node/stream-node.mts'
 import RingBuffer from '../../src/stream/ringbuffer.mts'
 
 describe('replaceSync', () => {

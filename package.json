@@ -1,6 +1,6 @@
 {
   "name": "@monyone/aho-corasick",
-  "version": "1.2.5",
+  "version": "1.3.0",
   "author": "monyone <monyone.teihen@gmail.com>",
   "description": "Aho Corasick implementation written in TypeScript",
   "keywords": [
@@ -56,52 +56,32 @@
     },
     "./stream": {
       "import": {
-        "types": "./dist/stream/replace.d.mts",
-        "default": "./dist/stream/replace.mjs"
+        "types": "./dist/stream/stream.d.mts",
+        "default": "./dist/stream/stream.mjs"
       },
       "require": {
-        "types": "./dist/stream/replace.d.cts",
-        "default": "./dist/stream/replace.cjs"
-      }
-    },
-    "./stream/tokenize": {
-      "import": {
-        "types": "./dist/stream/tokenize.d.mts",
-        "default": "./dist/stream/tokenize.mjs"
-      },
-      "require": {
-        "types": "./dist/stream/tokenize.d.cts",
-        "default": "./dist/stream/tokenize.cjs"
+        "types": "./dist/stream/stream.d.cts",
+        "default": "./dist/stream/stream.cjs"
       }
     },
     "./stream/web": {
       "import": {
-        "types": "./dist/stream/web/replace-web.d.mts",
-        "default": "./dist/stream/web/replace-web.mjs"
+        "types": "./dist/stream/web/stream-web.d.mts",
+        "default": "./dist/stream/web/stream-web.mjs"
       },
       "require": {
-        "types": "./dist/stream/web/replace-web.d.cts",
-        "default": "./dist/stream/web/replace-web.cjs"
-      }
-    },
-    "./stream/tokenize/web": {
-      "import": {
-        "types": "./dist/stream/web/tokenize-web.d.mts",
-        "default": "./dist/stream/web/tokenize-web.mjs"
-      },
-      "require": {
-        "types": "./dist/stream/web/tokenize-web.d.cts",
-        "default": "./dist/stream/web/tokenize-web.cjs"
+        "types": "./dist/stream/web/stream-web.d.cts",
+        "default": "./dist/stream/web/stream-web.cjs"
       }
     },
     "./stream/node": {
       "import": {
-        "types": "./dist/stream/node/replace-node.d.mts",
-        "default": "./dist/stream/node/replace-node.mjs"
+        "types": "./dist/stream/node/stream-node.d.mts",
+        "default": "./dist/stream/node/stream-node.mjs"
       },
       "require": {
-        "types": "./dist/stream/node/replace-node.d.cts",
-        "default": "./dist/stream/node/replace-node.cjs"
+        "types": "./dist/stream/node/stream-node.d.cts",
+        "default": "./dist/stream/node/stream-node.cjs"
       }
     }
   },

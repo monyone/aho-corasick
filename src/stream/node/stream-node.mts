@@ -2,12 +2,12 @@ import { Transform } from "node:stream";
 
 import Deque from "../deque.mts";
 import type { BoundaryFunc } from "../base.mts";
-import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleReplacer } from "../replace.mts";
+import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleReplacer } from "../stream.mts";
 import Collector from "../collector.mts";
 import RingBuffer from "../ringbuffer.mts";
 import { AbstractStreamAhoCorasick, type Match } from "../base.mts";
 
-export { Replacer, AsyncableReplacer } from "../replace.mts";
+export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
 export type { BoundaryFunc, Match } from "../base.mts";
 

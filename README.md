@@ -95,7 +95,7 @@ const replaced = input.pipeThrough(ahocorasick.replaceStream((key) => '#'.repeat
 ### Streaming Tokenize
 
 ```ts
-import { AhoCorasick } from '@monyone/aho-corasick/stream/tokenize';
+import { AhoCorasick } from '@monyone/aho-corasick/stream';
 
 const ahocorasick = new AhoCorasick(['cat', 'dog']);
 
