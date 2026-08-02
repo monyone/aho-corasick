@@ -44,5 +44,4 @@ export default class RingBuffer<T> {
   public reposition(position: number) {
     this.reference -= position;
   }
-
 }
