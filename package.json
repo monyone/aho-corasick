@@ -111,9 +111,9 @@
   },
   "devDependencies": {
     "@types/node": "24",
-    "tsdown": "^0.21.5",
+    "tsdown": "^0.22.14",
     "typescript": "^6.0.2",
     "vite": "^8.0.3",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.10"
   }
 }
