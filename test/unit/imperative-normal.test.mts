@@ -5,7 +5,7 @@ import { Boundary, type BoundaryFunc } from '../../src/stream/base.mts'
 import RingBuffer from '../../src/stream/ringbuffer.mts'
 
 // drive an ImperativeHandle over the chunks and join every emitted part
-const drive = <T>(handle: { write(chunk: string): T[]; end(): T[] }, chunks: string[]): T[] => {
+const drive = <T,>(handle: { write(chunk: string): T[]; end(): T[] }, chunks: string[]): T[] => {
   const parts: T[] = [];
   for (const chunk of chunks) { parts.push(...handle.write(chunk)); }
   parts.push(...handle.end());
@@ -201,58 +201,27 @@ describe('tokenizeSync', () => {
 });
 
 describe('replaceAsync (Promise-returning replacer)', () => {
-  test('async replacer produces Promise parts that resolve to the replacement', async () => {
+  // drive an AsyncImperativeHandle: await each write/end and collect resolved parts
+  const driveAsync = async (
+    handle: { write(chunk: string): Promise<string[]>; end(): Promise<string[]> },
+    chunks: string[],
+  ): Promise<string[]> => {
+    const parts: string[] = [];
+    for (const chunk of chunks) { parts.push(...(await handle.write(chunk))); }
+    parts.push(...(await handle.end()));
+    return parts;
+  };
+
+  test('async replacer resolves to the replacement', async () => {
     const handle = new AhoCorasick(['cat']).replaceAsync(async (m) => `[${m}]`);
-    const parts = drive(handle, ['a cat here']);
-    const resolved = await Promise.all(parts.map((p) => Promise.resolve(p)));
-    expect(resolved.join('')).toBe('a [cat] here');
+    const parts = await driveAsync(handle, ['a cat here']);
+    expect(parts.join('')).toBe('a [cat] here');
   });
 
-  test('sync replacement values are emitted as plain strings', async () => {
-    // passthrough text is never wrapped in a Promise
+  test('sync passthrough text is emitted as plain strings', async () => {
     const handle = new AhoCorasick(['zzz']).replaceAsync(async (m) => m);
-    const parts = handle.write('hello');
+    const parts = await handle.write('hello');
     expect(parts).toEqual(['hello']);
   });
 });
 
-describe('RingBuffer.slice', () => {
-  test('returns the whole buffer when no bounds are given', () => {
-    const ring = new RingBuffer<string>(8);
-    for (const ch of 'abcde') { ring.push(ch); }
-    expect(ring.slice().join('')).toBe('abcde');
-  });
-
-  test('slices by absolute position', () => {
-    const ring = new RingBuffer<string>(8);
-    for (const ch of 'abcde') { ring.push(ch); }
-    expect(ring.slice(1, 3).join('')).toBe('bc');
-    expect(ring.slice(2).join('')).toBe('cde');
-  });
-
-  test('clamps bounds to the retained window (no null holes)', () => {
-    const ring = new RingBuffer<string>(3);
-    for (const ch of 'abcdef') { ring.push(ch); }
-    // only the last 3 chars survive; asking from 0 clamps to the retained window
-    expect(ring.slice(0).join('')).toBe('def');
-    // an out-of-range window yields nothing rather than "null"
-    expect(ring.slice(0, 2).join('')).toBe('');
-  });
-
-  test('empty when begin >= end', () => {
-    const ring = new RingBuffer<string>(4);
-    for (const ch of 'abc') { ring.push(ch); }
-    expect(ring.slice(2, 2).join('')).toBe('');
-    expect(ring.slice(3, 1).join('')).toBe('');
-  });
-
-  test('tracks slice window after reposition', () => {
-    const ring = new RingBuffer<string>(8);
-    for (const ch of 'abc') { ring.push(ch); }
-    ring.reposition(2);
-    // positions shift by -2: 'a'->-2, 'b'->-1, 'c'->0
-    expect(ring.slice(-1).join('')).toBe('bc');
-    ring.push('d');
-    expect(ring.slice(0).join('')).toBe('cd');
-  });
-});

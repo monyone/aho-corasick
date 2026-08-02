@@ -45,7 +45,9 @@ const ahocorasick = new AhoCorasick(keywords);
 const match: { begin: number, end: number, keyword: string}[] = ahocorasick.matchInText(text);
 ```
 
-### Streaming Replace (Leftmost-Longest)
+### Streaming (Leftmost-Longest)
+
+#### Streaming Replace
 ```ts
 import { AhoCorasick, Boundary } from '@monyone/aho-corasick/stream';
 
@@ -56,7 +58,6 @@ Array.from(
 )
 // ['a DOG and DOGegory']
 ```
-
 
 #### Word Boundaries
 ```ts
@@ -92,7 +93,7 @@ const input = (await fetch('http://example.com')).body!.pipeThrough(new TextDeco
 const replaced = input.pipeThrough(ahocorasick.replaceStream((key) => '#'.repeat(key.length)));
 ```
 
-### Streaming Tokenize
+#### Streaming Tokenize
 
 ```ts
 import { AhoCorasick } from '@monyone/aho-corasick/stream';
@@ -104,6 +105,33 @@ const tokens = Array.from(ahocorasick.tokenizeSync(
   (text) => ({ type: 'text', value: text }),
   (keyword) => ({ type: 'match', keyword }),
 ));
+// [{type:'text',value:'a '}, {type:'match',keyword:'cat'}, {type:'text',value:' and a '}, {type:'match',keyword:'dog'}]
+```
+
+#### Imperative (Push)
+
+```ts
+import { AhoCorasick } from '@monyone/aho-corasick/stream/imperative';
+
+const handle = new AhoCorasick(['cat']).replaceSync(() => 'DOG');
+
+const parts = [];
+parts.push(...handle.write('a ca'));   // may buffer a partial match at the boundary
+parts.push(...handle.write('t and category'));
+parts.push(...handle.end());           // flush the tail
+parts.join('');
+// 'a DOG and DOGegory'
+```
+
+```ts
+import { AhoCorasick } from '@monyone/aho-corasick/stream/imperative';
+
+const handle = new AhoCorasick(['cat', 'dog']).tokenizeSync(
+  (text) => ({ type: 'text', value: text }),
+  (keyword) => ({ type: 'match', keyword }),
+);
+
+const tokens = [...handle.write('a cat and a dog'), ...handle.end()];
 // [{type:'text',value:'a '}, {type:'match',keyword:'cat'}, {type:'text',value:' and a '}, {type:'match',keyword:'dog'}]
 ```
 

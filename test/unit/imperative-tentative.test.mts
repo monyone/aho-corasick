@@ -85,11 +85,29 @@ describe('tokenizeSync (tentative)', () => {
 });
 
 describe('replaceAsync (tentative, Promise-returning replacer)', () => {
-  test('async replacer produces Promise parts that resolve to the replacement', async () => {
+  // async counterpart of driveWithTentative: await each write/end
+  const driveWithTentativeAsync = async <T, K, U,>(
+    handle: {
+      write(chunk: string): Promise<{ confirmed: (T | K)[]; tentative: U }>;
+      end(): Promise<(T | K)[]>;
+    },
+    chunks: string[],
+  ): Promise<{ confirmed: (T | K)[]; tentative: U }> => {
+    const confirmed: (T | K)[] = [];
+    let tentative: U = undefined as unknown as U;
+    for (const chunk of chunks) {
+      const r = await handle.write(chunk);
+      confirmed.push(...r.confirmed);
+      tentative = r.tentative;
+    }
+    confirmed.push(...(await handle.end()));
+    return { confirmed, tentative };
+  };
+
+  test('async replacer resolves to the replacement', async () => {
     const handle = new AhoCorasick(['cat']).replaceAsync(async (m) => `[${m}]`);
-    const { confirmed } = driveWithTentative(handle, ['a cat here']);
-    const resolved = await Promise.all(confirmed.map((p) => Promise.resolve(p)));
-    expect(resolved.join('')).toBe('a [cat] here');
+    const { confirmed } = await driveWithTentativeAsync(handle, ['a cat here']);
+    expect(confirmed.join('')).toBe('a [cat] here');
   });
 });
 
