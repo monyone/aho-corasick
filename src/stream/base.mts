@@ -325,4 +325,32 @@ export abstract class AbstractStreamAhoCorasick {
     }
   }
 }
+export abstract class AbstractStreamTentativeAhoCorasick extends AbstractStreamAhoCorasick {
+  protected tentative = new Map<Trie, string>();
 
+  constructor(keywords: string[]) {
+    super(keywords);
+
+    // build tentative
+    this.tentative.set(this.root, '')
+    for (const keyword of keywords) {
+      let current = this.root;
+      for (let i = 0; i < keyword.length; i++) {
+        const ch = keyword[i];
+        let next = current.go(ch) ?? (new Trie(current))
+        current.define(ch, next);
+        current = next;
+      }
+
+      let target = keyword;
+      while (!this.tentative.has(current)) {
+        if (!current.empty()) {
+          target = current.value()!;
+        }
+        this.tentative.set(current, target.slice(0, current.depth));
+
+        current = current.parent!;
+      }
+    }
+  }
+}

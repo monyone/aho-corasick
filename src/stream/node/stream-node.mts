@@ -12,7 +12,6 @@ export { Boundary } from "../base.mts";
 export type { BoundaryFunc, Match } from "../base.mts";
 
 export class AhoCorasick extends AbstractStreamAhoCorasick {
-
   public replaceStream(replacer: Replacer, boundary?: BoundaryFunc): Transform {
     const aho = this;
     const deque = new Deque<Match>();

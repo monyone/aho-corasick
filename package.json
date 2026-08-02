@@ -1,6 +1,6 @@
 {
   "name": "@monyone/aho-corasick",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "author": "monyone <monyone.teihen@gmail.com>",
   "description": "Aho Corasick implementation written in TypeScript",
   "keywords": [
@@ -62,6 +62,16 @@
       "require": {
         "types": "./dist/stream/stream.d.cts",
         "default": "./dist/stream/stream.cjs"
+      }
+    },
+    "./stream/imperative": {
+      "import": {
+        "types": "./dist/stream/imperative/imperative.d.mts",
+        "default": "./dist/stream/imperative/imperative.mjs"
+      },
+      "require": {
+        "types": "./dist/stream/imperative/imperative.d.cts",
+        "default": "./dist/stream/imperative/imperative.cjs"
       }
     },
     "./stream/web": {

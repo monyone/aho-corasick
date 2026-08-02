@@ -74,10 +74,6 @@ export const AsyncableReplacer = {
 } as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
 
 export class AhoCorasick extends AbstractStreamAhoCorasick {
-  constructor(keywords: string[]) {
-    super(keywords);
-  }
-
   public *replaceSync(iterable: Iterable<string>, replacer: Replacer, boundary?: BoundaryFunc): Iterable<string> {
     const deque = new Deque<Match>();
     const ring = new RingBuffer<string>(this.ringbufferCapacity);
@@ -85,7 +81,7 @@ export class AhoCorasick extends AbstractStreamAhoCorasick {
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
-    let state: Trie = this.root;
+    let state = this.root;
     let confirmed_offset = 0;
 
     for (const text of iterable) {
@@ -101,7 +97,7 @@ export class AhoCorasick extends AbstractStreamAhoCorasick {
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
-    let state: Trie = this.root;
+    let state = this.root;
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
@@ -117,7 +113,7 @@ export class AhoCorasick extends AbstractStreamAhoCorasick {
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
     const detect = (keyword: string) => target(keyword);
 
-    let state: Trie = this.root;
+    let state = this.root;
     let confirmed_offset = 0;
 
     for (const text of iterable) {
@@ -133,7 +129,7 @@ export class AhoCorasick extends AbstractStreamAhoCorasick {
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
     const detect = (keyword: string) => target(keyword);
 
-    let state: Trie = this.root;
+    let state = this.root;
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
