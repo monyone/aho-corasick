@@ -1,9 +1,8 @@
 import { Chance } from 'chance';
-import { AhoCorasick as AhoCorasickMonyone, DynamicAhoCorasick as DynamicAhoCorasickMonyone } from '../src/index.mts';
+import { AhoCorasick as AhoCorasickMonyone, DynamicAhoCorasick as DynamicAhoCorasickMonyone } from '@monyone/aho-corasick';
 import { Trie as AhoCorasickTanishiking } from "@tanishiking/aho-corasick";
 import AhoCorasickBrunorb from 'ahocorasick';
-import AhoCorasickSonofmagic_ from 'modern-ahocorasick'
-const AhoCorasickSonofmagic = AhoCorasickSonofmagic_ as unknown as typeof AhoCorasickSonofmagic_["default"];
+import AhoCorasickSonofmagic from 'modern-ahocorasick'
 import { TyniSearch as AhoCorasickPrrada } from 'tynisearch'
 import AhoCorasickMichaelhan_ from 'word-match-helper'
 const { WordMatcher: AhoCorasickMichaelhan } = AhoCorasickMichaelhan_;
