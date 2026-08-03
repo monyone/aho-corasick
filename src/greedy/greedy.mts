@@ -1,5 +1,6 @@
 export type Match = { begin: number, end: number, keyword: string };
-export type BoundaryFunc = (detect: string, left: string, right: string) => boolean;
+export type BoundaryTarget = (keyword: string) => boolean;
+export type BoundaryFunc = (left: string, right: string) => boolean;
 type ReplaceFunc = ((detect: string) => (string | false));
 type AsyncableReplaceFunc = ((detect: string) => Promise<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
 export type Replacer = Record<string, string> | Map<string, string> | ReplaceFunc;
@@ -41,11 +42,6 @@ const handleAsyncableReplacer = (detect: string, replacer: AsyncableReplacer): s
   }
 };
 
-const handleBoundary = (detect: string, left: string | null, right: string | null, boundary?: BoundaryFunc): boolean => {
-  if (left == null || right == null) { return true; }
-  return boundary?.(detect, left, right) ?? true;
-}
-
 export const Replacer = {
   Keep: () => (() => false),
   Delete: () => (() => ''),
@@ -72,58 +68,95 @@ export const AsyncableReplacer = {
   },
 } as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
 
+export type BoundaryEntry = { target: BoundaryTarget, boundary: BoundaryFunc };
 export const Boundary = {
-  WhiteSpace: (): BoundaryFunc => {
+  WhiteSpace: (): BoundaryEntry => {
     const isBoundary = (ch: string) => /\s/.test(ch);
-    return (_, left, right) => isBoundary(left) || isBoundary(right);
+    const target = () => true;
+    const boundary = (left: string, right: string) => isBoundary(left) || isBoundary(right);
+    return { target, boundary };
   },
-  AsciiTerm: (prefill?: string[]): BoundaryFunc => {
+  By: (separator: RegExp): BoundaryEntry => {
+    const target = () => true;
+    const boundary = (left: string, right: string) => separator.test(left) || separator.test(right);
+    return { target, boundary };
+  },
+  AsciiTerm: (): BoundaryEntry => {
     const isAsciiChar = (ch: string) => /[A-Za-z0-9_&#+.-]/.test(ch);
-    const isAsciiTerm = (term: string) => /^[A-Za-z0-9_&#+.-](?:[A-Za-z0-9_&#+.\s-]*[A-Za-z0-9_&#+.-])?$/.test(term);
-    const isAsciiTermCache = new Map<string, boolean>(
-      (prefill ?? []).map((keyword) => [keyword, isAsciiTerm(keyword)])
-    );
-    return (detect, left, right) => {
-      const asciiTermCache = isAsciiTermCache.get(detect);
-      if (asciiTermCache === false) { return true; }
-      const asciiTerm = asciiTermCache ?? isAsciiTerm(detect);
-      if (!isAsciiTermCache.has(detect)) {
-        isAsciiTermCache.set(detect, asciiTerm);
-      }
-      if (!asciiTerm) { return true; }
-      return !(isAsciiChar(left) && isAsciiChar(right));
-    };
+    const target = (t: string) => /^[A-Za-z0-9_&#+.-](?:[A-Za-z0-9_&#+.\s-]*[A-Za-z0-9_&#+.-])?$/.test(t);
+    const boundary = (left: string, right: string) => !(isAsciiChar(left) && isAsciiChar(right));
+    return { target, boundary };
   },
-  AsciiEdge: (): BoundaryFunc => {
+  AsciiEdge: (): BoundaryEntry => {
     const isAsciiChar = (ch: string) => /[A-Za-z0-9_&#+.-]/.test(ch);
-    return (_, left, right) => {
-      return !(isAsciiChar(left) && isAsciiChar(right));
-    };
+    // if neither edge char is ascii, the boundary holds against any neighbor, so sentinels are omittable
+    const target = (t: string) => t.length === 0 ? false : isAsciiChar(t[0]) || isAsciiChar(t[t.length - 1]);
+    const boundary = (left: string, right: string) => !(isAsciiChar(left) && isAsciiChar(right));
+    return { target, boundary };
   },
-  By: (separator: RegExp): BoundaryFunc => {
-    return (_, left, right) => separator.test(left) || separator.test(right);
-  },
-} as const satisfies Record<string, (...args: any[]) => BoundaryFunc>;
+} as const satisfies Record<string, (... args: any[]) => BoundaryEntry>;
 
-class Trie {
-  public readonly parent: Trie | null = null;
-  private keyword: string | null = null;
-  private goto: Map<string, Trie> = new Map<string, Trie>();
+const OPEN: unique symbol = Symbol();
+const CLOSE: unique symbol = Symbol();
+type Sentinel = typeof OPEN | typeof CLOSE;
+type Sym = string | Sentinel;
 
-  public constructor(parent?: Trie) {
-    this.parent = parent ?? null;
+const withSentinel = (keyword: string, entry?: BoundaryEntry): Sym[][] => {
+  if (entry == null) { return [keyword.split('')]; }
+  if (keyword === '') {
+    if (entry.target(keyword)) {
+      return [[OPEN, CLOSE]];
+    } else {
+      return [
+        [OPEN, CLOSE],
+        [CLOSE],
+        [OPEN],
+        [],
+      ];
+    }
   }
 
-  public can(s: string) {
+  const syms: Sym[] = [keyword[0]];
+  for (let i = 1; i < keyword.length; i++) {
+    if (entry.boundary(keyword[i - 1], keyword[i - 0])) {
+      syms.push(CLOSE, OPEN);
+    }
+    syms.push(keyword[i]);
+  }
+
+  if (entry.target(keyword)) {
+    return [[OPEN, ... syms, CLOSE]]
+  } else {
+    return [
+      [OPEN, ... syms, CLOSE],
+      [... syms, CLOSE],
+      [OPEN, ... syms],
+      [... syms],
+    ];
+  }
+}
+
+export class Trie<T, K> {
+  public readonly parent: Trie<T, K> | null = null;
+  public readonly depth: number;
+  private keyword: K | null = null;
+  private goto: Map<T, Trie<T, K>> = new Map<T, Trie<T, K>>();
+
+  public constructor(parent?: Trie<T, K>, depth: 0 | 1 = 1) {
+    this.parent = parent ?? null;
+    this.depth = parent == null ? 0 : parent.depth + depth;
+  }
+
+  public can(s: T) {
     return this.goto.has(s);
   }
-  public go(s: string) {
+  public go(s: T) {
     return this.goto.get(s);
   }
-  public define(s: string, next: Trie) {
+  public define(s: T, next: Trie<T, K>) {
     return this.goto.set(s, next);
   }
-  public undef(s: string) {
+  public undef(s: T) {
     this.goto.delete(s);
   }
   public entries() {
@@ -133,41 +166,44 @@ class Trie {
   public empty() {
     return this.keyword == null;
   }
-  public add(k: string) {
+  public add(k: K) {
     this.keyword = k;
-  }
-  public delete(k: string) {
-    this.keyword = null;
   }
   public value() {
     return this.keyword;
   }
-  public merge(t?: Trie) {
+  public merge(t?: Trie<T, K>) {
     this.keyword ??= t?.keyword ?? null;
   }
 }
 
 export class AhoCorasick {
-  protected root = new Trie();
-  protected failure_link = new Map<Trie, Trie>();
+  protected readonly boundaryConfig?: BoundaryEntry;
+  protected root = new Trie<Sym, string>();
+  protected failure_link = new Map<Trie<Sym, string>, Trie<Sym, string>>();
 
-  constructor(keywords: string[]) {
+  constructor(keywords: string[], boundary?: BoundaryEntry) {
+    this.boundaryConfig = boundary;
+
     // build goto
     for (const keyword of keywords) {
-      let current = this.root;
-      for (let i = 0; i < keyword.length; i++) {
-        const ch = keyword[i];
-        let next = current.go(ch) ?? (new Trie(current))
-        current.define(ch, next);
-        current = next;
+      for (const sequence of withSentinel(keyword, this.boundaryConfig)) {
+        let current = this.root;
+        for (let i = 0; i < sequence.length; i++) {
+          const ch = sequence[i];
+          const width = typeof(ch) === 'string' ? 1 : 0
+          let next = current.go(ch) ?? (new Trie(current, width));
+          current.define(ch, next);
+          current = next;
+        }
+        current.add(keyword);
       }
-      current.add(keyword);
     }
 
     // build failure
     {
       let top = 0;
-      const queue: [Trie, string][] = [];
+      const queue: [Trie<Sym, string>, Sym][] = [];
       for (const [ch, next] of this.root.entries()) {
         queue.push([next, ch]);
       }
@@ -197,49 +233,87 @@ export class AhoCorasick {
     }
   }
 
-  public hasKeywordInText(text: string, boundary?: BoundaryFunc): boolean {
+  private symbolize(text: string): Sym[] {
+    if (this.boundaryConfig == null) { return text.split(''); }
+    const syms: Sym[] = [];
+
+    for (let i = 0; i < text.length; i++) {
+      if (i === 0) {
+        syms.push(OPEN);
+      } else if (this.boundaryConfig.boundary(text[i - 1], text[i - 0])) {
+        syms.push(CLOSE, OPEN);
+      }
+      syms.push(text[i]);
+    }
+    // テキスト終端も境界: 末尾で終わる target キーワードを完成させる
+    if (text.length > 0) { syms.push(CLOSE); }
+    return syms;
+  }
+
+  public hasKeywordInText(text: string): boolean {
     if (!this.root.empty()) { return true; }
 
-    let state: Trie = this.root;
-    for (let i = 0; i < text.length; i++) {
-
-      const ch = text[i];
+    let state = this.root;
+    const symbols = this.symbolize(text);
+    for (let i = 0; i < symbols.length; i++) {
+      const ch = symbols[i];
       while (!state.can(ch) && state !== this.root) {
         state = this.failure_link.get(state)!;
       }
       state = state.go(ch) ?? this.root;
 
-      if (!state.empty()) {
-        const keyword = state.value()!;
-        const length = keyword.length;
-        const begin = (i + 1) - length;
-        const end = (i + 1);
-
-        const l = length === 0 || (boundary == null || handleBoundary(keyword, text[begin - 1], text[begin - 0], boundary));
-        const r = length === 0 || (boundary == null || handleBoundary(keyword, text[end - 1], text[end + 0], boundary));
-        if (l && r) { return true }
-      }
+      if (!state.empty()) { return true; }
     }
 
     return false;
   }
 
-  public matchInText(text: string, boundary?: BoundaryFunc): Match[] {
+  public matchInText(text: string): Match[] {
     const candidates: Match[] = [];
+    const push = (begin: number, end: number, keyword: string) => {
+      while (true) {
+        if (candidates.length === 0) {
+          candidates.push({ begin, end, keyword })
+          break;
+        }
 
-    // 初回の "" (empty) がありうるので、そのケースを事前に対応
+        const stack = candidates.length - 1;
+        if (candidates[stack].end <= begin && candidates[stack].begin < begin) {
+          candidates.push({ begin, end, keyword });
+          break;
+        } else if (begin > candidates[stack].begin) {
+          break;
+        } else {
+          candidates.pop();
+        }
+      }
+    };
+
+    // "" (empty) がありうるので、そのケースを対応
     if (!this.root.empty()) {
       const keyword = this.root.value()!;
       const length = keyword.length;
       const begin = 0 - length;
       const end = 0;
-
       candidates.push({ begin, end, keyword })
     }
 
-    let state: Trie = this.root;
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i];
+    let state = this.root;
+    let index = 0;
+    const symbols = this.symbolize(text);
+    for (let i = 0; i < symbols.length; i++) {
+      const ch = symbols[i];
+      const width = typeof(ch) === 'string' ? 1 : 0;
+
+      // "" (empty) がありうるので、そのケースを対応
+      if (!this.root.empty() && width > 0) {
+        const keyword = this.root.value()!;
+        const length = keyword.length;
+        const end = index;
+        const begin = end - length;
+        push(begin, end, keyword);
+      }
+
       if (!state.can(ch)) { // use failure
         while (state !== this.root && !(state.can(ch))) {
           state = this.failure_link.get(state)!;
@@ -250,40 +324,31 @@ export class AhoCorasick {
       if (!state.empty()) {
         const keyword = state.value()!;
         const length = keyword.length;
-        const begin = (i + 1) - length;
-        const end = (i + 1);
-
-        const l = length === 0 || (boundary == null || handleBoundary(keyword, text[begin - 1], text[begin - 0], boundary));
-        const r = length === 0 || (boundary == null || handleBoundary(keyword, text[end - 1], text[end + 0], boundary));
-        if (l && r) {
-          while (true) {
-            if (candidates.length === 0) {
-              candidates.push({ begin, end, keyword })
-              break;
-            }
-
-            const stack = candidates.length - 1;
-            if (candidates[stack].end <= begin && candidates[stack].begin < begin) {
-              candidates.push({ begin, end, keyword });
-              break;
-            } else if (begin > candidates[stack].begin) {
-              break;
-            } else {
-              candidates.pop();
-            }
-          }
-        }
+        const end = index + width;
+        const begin = end - length;
+        push(begin, end, keyword);
       }
+
+      index += width;
+    }
+
+    // "" (empty) がありうるので、そのケースを対応
+    if (!this.root.empty()) {
+      const keyword = this.root.value()!;
+      const length = keyword.length;
+      const end = index;
+      const begin = end - length;
+      push(begin, end, keyword);
     }
 
     return candidates;
   }
 
-  public tokenizeInText<T, K>(text: string, normal: (chunk: string) => T, target: (keyword: string) => K, boundary?: BoundaryFunc): (T | K)[] {
+  public tokenizeInText<T, K>(text: string, normal: (chunk: string) => T, target: (keyword: string) => K): (T | K)[] {
     const tokens: (T | K)[] = [];
 
     let offset = 0;
-    for (const { begin, end, keyword } of this.matchInText(text, boundary)) {
+    for (const { begin, end, keyword } of this.matchInText(text)) {
       if (offset < begin) {
         tokens.push(normal(text.slice(offset, begin)));
       }
@@ -297,15 +362,15 @@ export class AhoCorasick {
     return tokens;
   }
 
-  public replaceInText(text: string, replacer: Replacer, boundary?: BoundaryFunc): string {
+  public replaceInText(text: string, replacer: Replacer): string {
     const normal = (chunk: string) => chunk;
     const keyword = (detect: string) => handleReplacer(detect, replacer);
-    return this.tokenizeInText(text, normal, keyword, boundary).join('');
+    return this.tokenizeInText(text, normal, keyword).join('');
   }
 
-  public async replaceAsyncInText(text: string, replacer: AsyncableReplacer, boundary?: BoundaryFunc): Promise<string> {
+  public async replaceAsyncInText(text: string, replacer: AsyncableReplacer): Promise<string> {
     const normal = (chunk: string) => chunk;
     const keyword = (detect: string) => handleAsyncableReplacer(detect, replacer);
-    return (await Promise.all(this.tokenizeInText(text, normal, keyword, boundary))).join('');
+    return (await Promise.all(this.tokenizeInText(text, normal, keyword))).join('');
   }
 }

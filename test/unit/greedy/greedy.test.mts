@@ -485,72 +485,72 @@ describe('hasKeywordInText', () => {
   });
 
   test('respects boundary: whole word matches', () => {
-    const aho = new AhoCorasick(['cat']);
-    expect(aho.hasKeywordInText('a cat here', Boundary.AsciiTerm())).toBe(true);
+    const aho = new AhoCorasick(['cat'], Boundary.AsciiTerm());
+    expect(aho.hasKeywordInText('a cat here')).toBe(true);
   });
 
   test('respects boundary: substring inside a larger word does not match', () => {
-    const aho = new AhoCorasick(['cat']);
-    expect(aho.hasKeywordInText('category', Boundary.AsciiTerm())).toBe(false);
+    const aho = new AhoCorasick(['cat'], Boundary.AsciiTerm());
+    expect(aho.hasKeywordInText('category')).toBe(false);
   });
 
   test('keeps scanning past a boundary-blocked occurrence', () => {
-    const aho = new AhoCorasick(['cat']);
+    const aho = new AhoCorasick(['cat'], Boundary.AsciiTerm());
     // first "cat" is inside "category" (blocked), standalone "cat" later is accepted
-    expect(aho.hasKeywordInText('category cat', Boundary.AsciiTerm())).toBe(true);
+    expect(aho.hasKeywordInText('category cat')).toBe(true);
   });
 });
 
 describe('matchInText with boundary', () => {
   test('replaces standalone word but keeps substring inside a larger word', () => {
-    const aho = new AhoCorasick(['cat']);
-    expect(aho.matchInText('a cat and category', Boundary.AsciiTerm())).toStrictEqual([
+    const aho = new AhoCorasick(['cat'], Boundary.AsciiTerm());
+    expect(aho.matchInText('a cat and category')).toStrictEqual([
       { begin: 2, end: 5, keyword: 'cat' }
     ]);
   });
 
   test('word at text start and end passes without a boundary char', () => {
-    const aho = new AhoCorasick(['cat']);
-    expect(aho.matchInText('cat and cat', Boundary.AsciiTerm())).toStrictEqual([
+    const aho = new AhoCorasick(['cat'], Boundary.AsciiTerm());
+    expect(aho.matchInText('cat and cat')).toStrictEqual([
       { begin: 0, end: 3, keyword: 'cat' },
       { begin: 8, end: 11, keyword: 'cat' }
     ]);
   });
 
   test('falls back to a shorter keyword when the longer one is blocked by the boundary', () => {
-    const aho = new AhoCorasick(['ABC CD', 'ABC']);
+    const aho = new AhoCorasick(['ABC CD', 'ABC'], Boundary.AsciiTerm());
     // "ABC CD" is present but followed by 'E', so it is not a whole term;
     // the shorter "ABC" must survive instead
-    expect(aho.matchInText('ABC CDE', Boundary.AsciiTerm())).toStrictEqual([
+    expect(aho.matchInText('ABC CDE')).toStrictEqual([
       { begin: 0, end: 3, keyword: 'ABC' }
     ]);
   });
 
   test('the longer keyword wins when it is a whole term', () => {
-    const aho = new AhoCorasick(['ABC CD', 'ABC']);
-    expect(aho.matchInText('ABC CD END', Boundary.AsciiTerm())).toStrictEqual([
+    const aho = new AhoCorasick(['ABC CD', 'ABC'], Boundary.AsciiTerm());
+    expect(aho.matchInText('ABC CD END')).toStrictEqual([
       { begin: 0, end: 6, keyword: 'ABC CD' }
     ]);
   });
 
   test('Boundary.WhiteSpace treats punctuation-wrapped words as non-boundary', () => {
-    const aho = new AhoCorasick(['cat']);
-    expect(aho.matchInText('(cat) cat', Boundary.WhiteSpace())).toStrictEqual([
+    const aho = new AhoCorasick(['cat'], Boundary.WhiteSpace());
+    expect(aho.matchInText('(cat) cat')).toStrictEqual([
       { begin: 6, end: 9, keyword: 'cat' }
     ]);
   });
 
   test('Boundary.By uses a custom separator', () => {
-    const aho = new AhoCorasick(['cat']);
+    const aho = new AhoCorasick(['cat'], Boundary.By(/\//));
     // only '/' delimits; "/cat/" matches, trailing " cat" has a non-separator left char
-    expect(aho.matchInText('/cat/ a cat', Boundary.By(/\//))).toStrictEqual([
+    expect(aho.matchInText('/cat/ a cat')).toStrictEqual([
       { begin: 1, end: 4, keyword: 'cat' }
     ]);
   });
 
   test('non-ASCII keyword is never subject to the AsciiTerm whole-term check', () => {
-    const aho = new AhoCorasick(['東京']);
-    expect(aho.matchInText('東京と東京都', Boundary.AsciiTerm())).toStrictEqual([
+    const aho = new AhoCorasick(['東京'], Boundary.AsciiTerm());
+    expect(aho.matchInText('東京と東京都')).toStrictEqual([
       { begin: 0, end: 2, keyword: '東京' },
       { begin: 3, end: 5, keyword: '東京' }
     ]);
@@ -616,12 +616,11 @@ describe('tokenizeInText', () => {
   });
 
   test('honours the boundary function', () => {
-    const aho = new AhoCorasick(['cat']);
+    const aho = new AhoCorasick(['cat'], Boundary.AsciiTerm());
     const tokens = aho.tokenizeInText(
       'category cat',
       (chunk) => ({ n: chunk }),
       (keyword) => ({ k: keyword }),
-      Boundary.AsciiTerm(),
     );
     expect(tokens).toStrictEqual([
       { n: 'category ' },
@@ -663,8 +662,8 @@ describe('replaceInText', () => {
   });
 
   test('respects the boundary function', () => {
-    const aho = new AhoCorasick(['cat']);
-    expect(aho.replaceInText('a cat and category', () => 'DOG', Boundary.AsciiTerm())).toBe('a DOG and category');
+    const aho = new AhoCorasick(['cat'], Boundary.AsciiTerm());
+    expect(aho.replaceInText('a cat and category', () => 'DOG')).toBe('a DOG and category');
   });
 
   test('Replacer.Delete removes the match', () => {
@@ -708,8 +707,8 @@ describe('replaceAsyncInText', () => {
   });
 
   test('respects the boundary function', async () => {
-    const aho = new AhoCorasick(['cat']);
-    const result = await aho.replaceAsyncInText('a cat and category', async () => 'DOG', Boundary.AsciiTerm());
+    const aho = new AhoCorasick(['cat'], Boundary.AsciiTerm());
+    const result = await aho.replaceAsyncInText('a cat and category', async () => 'DOG');
     expect(result).toBe('a DOG and category');
   });
 
@@ -753,26 +752,31 @@ describe('empty keyword', () => {
   test('matchInText: a longer match wins over a zero-width match at the same start', () => {
     const aho = new AhoCorasick(['', 'ab']);
     // at begin=1 the empty match is dropped in favour of "ab" growing from there;
-    // zero-width matches only survive where nothing longer starts
+    // like JS String.replaceAll, a zero-width match right after a match end survives
     expect(aho.matchInText('xaby')).toStrictEqual([
       { begin: 0, end: 0, keyword: '' },
       { begin: 1, end: 3, keyword: 'ab' },
+      { begin: 3, end: 3, keyword: '' },
       { begin: 4, end: 4, keyword: '' },
     ]);
   });
 
   test('matchInText: a match starting at 0 wins over the leading zero-width match', () => {
     const aho = new AhoCorasick(['', 'ab']);
+    // 'ab'.replaceAll(/(?:ab|)/g, ...) also matches '' at the very end
     expect(aho.matchInText('ab')).toStrictEqual([
       { begin: 0, end: 2, keyword: 'ab' },
+      { begin: 2, end: 2, keyword: '' },
     ]);
   });
 
-  test('matchInText: zero-width matches between real matches are dropped', () => {
+  test('matchInText: zero-width matches are dominated by real matches at the same position', () => {
     const aho = new AhoCorasick(['', 'ab', 'cd']);
+    // '' at 0 and 2 loses to the longer match starting there; only the trailing one survives
     expect(aho.matchInText('abcd')).toStrictEqual([
       { begin: 0, end: 2, keyword: 'ab' },
       { begin: 2, end: 4, keyword: 'cd' },
+      { begin: 4, end: 4, keyword: '' },
     ]);
   });
 

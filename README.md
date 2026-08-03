@@ -63,10 +63,10 @@ Array.from(
 ```ts
 import { AhoCorasick, Boundary } from '@monyone/aho-corasick/stream';
 
-const ahocorasick = new AhoCorasick(['cat']);
+const ahocorasick = new AhoCorasick(['cat'], Boundary.AsciiEdge());
 
 Array.from(
-  ahocorasick.replaceSync(['a cat and category'], () => 'DOG', Boundary.AsciiEdge())
+  ahocorasick.replaceSync(['a cat and category'], () => 'DOG')
 )
 // ['a DOG and category']
 ```

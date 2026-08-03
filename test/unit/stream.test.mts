@@ -1,10 +1,10 @@
 import { test, expect, describe } from 'vitest';
 
 import { AhoCorasick, Replacer } from '../../src/stream/stream.mts'
-import { Boundary, type BoundaryFunc } from '../../src/stream/base.mts'
+import { Boundary, type BoundaryEntry } from '../../src/stream/base.mts'
 import { AhoCorasick as AhoCorasickWebStream } from '../../src/stream/web/stream-web.mts'
 import { AhoCorasick as AhoCorasickNodeStream } from '../../src/stream/node/stream-node.mts'
-import RingBuffer from '../../src/stream/ringbuffer.mts'
+import Collector from '../../src/stream/collector.mts'
 
 describe('replaceSync', () => {
   test('Basic replacement with single keyword', () => {
@@ -377,149 +377,109 @@ describe('replaceSync', () => {
   });
 });
 
-describe('RingBuffer', () => {
-  test('get returns pushed values by absolute position', () => {
-    const ring = new RingBuffer<string>(4);
-    for (const ch of 'abc') { ring.push(ch); }
-    expect(ring.get(0)).toBe('a');
-    expect(ring.get(1)).toBe('b');
-    expect(ring.get(2)).toBe('c');
+describe('Collector', () => {
+  test('take yields fed content in order across chunk boundaries', () => {
+    const collector = new Collector();
+    collector.feed('abc');
+    collector.feed('def');
+    expect(Array.from(collector.take(2)).join('')).toBe('ab');
+    expect(Array.from(collector.take(3)).join('')).toBe('cde');
+    expect(Array.from(collector.take(1)).join('')).toBe('f');
   });
 
-  test('get returns null for positions not pushed yet', () => {
-    const ring = new RingBuffer<string>(4);
-    expect(ring.get(0)).toBeNull();
-    ring.push('a');
-    expect(ring.get(-1)).toBeNull();
-    expect(ring.get(1)).toBeNull();
+  test('take is capped by the remaining content', () => {
+    const collector = new Collector();
+    collector.feed('abc');
+    expect(Array.from(collector.take(10)).join('')).toBe('abc');
+    expect(Array.from(collector.take(1)).join('')).toBe('');
   });
 
-  test('recent values stay retrievable and old values are evicted', () => {
-    const ring = new RingBuffer<string>(3);
-    for (const ch of 'abcdefgh') { ring.push(ch); }
-    // the last `capacity` positions are always retrievable
-    expect(ring.get(7)).toBe('h');
-    expect(ring.get(6)).toBe('g');
-    // positions far in the past are evicted
-    expect(ring.get(0)).toBeNull();
-    expect(ring.get(1)).toBeNull();
+  test('skip discards exactly the content take would have returned', () => {
+    const collector = new Collector();
+    collector.feed('abcdef');
+    collector.skip(2);
+    expect(Array.from(collector.take(2)).join('')).toBe('cd');
+    collector.feed('gh');
+    collector.skip(3);
+    expect(Array.from(collector.take(9)).join('')).toBe('h');
   });
 
-  test('reposition shifts the position coordinate', () => {
-    const ring = new RingBuffer<string>(4);
-    for (const ch of 'abc') { ring.push(ch); }
-    ring.reposition(2);
-    expect(ring.get(-2)).toBe('a');
-    expect(ring.get(-1)).toBe('b');
-    expect(ring.get(0)).toBe('c');
-    ring.push('d');
-    expect(ring.get(1)).toBe('d');
-  });
-
-  test('size and empty reflect eviction', () => {
-    const ring = new RingBuffer<string>(2);
-    expect(ring.empty()).toBe(true);
-    ring.push('a');
-    expect(ring.empty()).toBe(false);
-    expect(ring.size()).toBe(1);
-    for (const ch of 'bcdefgh') { ring.push(ch); }
-    // size is bounded no matter how many values are pushed
-    expect(ring.size()).toBeLessThanOrEqual(2);
+  test('length grows with feed and shifts with reposition', () => {
+    const collector = new Collector();
+    collector.feed('abc');
+    expect(collector.length).toBe(3);
+    collector.feed('de');
+    expect(collector.length).toBe(5);
+    collector.reposition(4);
+    expect(collector.length).toBe(1);
   });
 });
 
 describe('replaceSync with boundary', () => {
-  // a word boundary exists between two adjacent chars unless both are word characters
-  const wordBoundary: BoundaryFunc = (_, left, right) => !(/\w/.test(left) && /\w/.test(right));
+  // every keyword is matched as a whole word: no \w char may touch either edge
+  const wordBoundary: BoundaryEntry = {
+    target: () => true,
+    boundary: (left, right) => !(/\w/.test(left) && /\w/.test(right)),
+  };
   const bracket = (match: string) => `[${match}]`;
+  const replaceWord = (keywords: string[], chunks: string[]) =>
+    Array.from(new AhoCorasick(keywords, wordBoundary).replaceSync(chunks, bracket)).join('');
 
   test('standalone keyword is replaced, keyword inside a larger word is kept', () => {
-    const aho = new AhoCorasick(['cat']);
-    const result = Array.from(aho.replaceSync(['a cat and category'], bracket, wordBoundary)).join('');
-    expect(result).toBe('a [cat] and category');
+    expect(replaceWord(['cat'], ['a cat and category'])).toBe('a [cat] and category');
   });
 
   test('keyword followed by a word character is kept', () => {
-    const aho = new AhoCorasick(['cat']);
-    const result = Array.from(aho.replaceSync(['cats'], bracket, wordBoundary)).join('');
-    expect(result).toBe('cats');
+    expect(replaceWord(['cat'], ['cats'])).toBe('cats');
   });
 
   test('keyword preceded by a word character is kept', () => {
-    const aho = new AhoCorasick(['cat']);
-    const result = Array.from(aho.replaceSync(['scat'], bracket, wordBoundary)).join('');
-    expect(result).toBe('scat');
+    expect(replaceWord(['cat'], ['scat'])).toBe('scat');
   });
 
   test('text start and end count as boundaries', () => {
-    const aho = new AhoCorasick(['cat']);
-    expect(Array.from(aho.replaceSync(['cat sat'], bracket, wordBoundary)).join('')).toBe('[cat] sat');
-    expect(Array.from(aho.replaceSync(['the cat'], bracket, wordBoundary)).join('')).toBe('the [cat]');
-    expect(Array.from(aho.replaceSync(['cat'], bracket, wordBoundary)).join('')).toBe('[cat]');
+    expect(replaceWord(['cat'], ['cat sat'])).toBe('[cat] sat');
+    expect(replaceWord(['cat'], ['the cat'])).toBe('the [cat]');
+    expect(replaceWord(['cat'], ['cat'])).toBe('[cat]');
   });
 
   test('punctuation adjacent to the keyword counts as a boundary', () => {
-    const aho = new AhoCorasick(['cat']);
-    const result = Array.from(aho.replaceSync(['(cat) cat.'], bracket, wordBoundary)).join('');
-    expect(result).toBe('([cat]) [cat].');
+    expect(replaceWord(['cat'], ['(cat) cat.'])).toBe('([cat]) [cat].');
   });
 
   test('boundary is checked across chunk edges', () => {
-    const aho = new AhoCorasick(['cat']);
     // "scat cat": the 1st cat is preceded by 's' from the previous chunk -> kept,
     // the 2nd is preceded by ' ' from the previous chunk and ends the text -> replaced
-    const result = Array.from(aho.replaceSync(['s', 'cat', ' ca', 't'], bracket, wordBoundary)).join('');
-    expect(result).toBe('scat [cat]');
+    expect(replaceWord(['cat'], ['s', 'cat', ' ca', 't'])).toBe('scat [cat]');
   });
 
   test('right neighbor arriving in the next chunk decides the match', () => {
-    const aho = new AhoCorasick(['cat']);
-    expect(Array.from(aho.replaceSync(['a cat', 's'], bracket, wordBoundary)).join('')).toBe('a cats');
-    expect(Array.from(aho.replaceSync(['a cat', ' x'], bracket, wordBoundary)).join('')).toBe('a [cat] x');
+    expect(replaceWord(['cat'], ['a cat', 's'])).toBe('a cats');
+    expect(replaceWord(['cat'], ['a cat', ' x'])).toBe('a [cat] x');
   });
 
-  test('boundary function receives the keyword and the adjacent character pairs', () => {
-    const aho = new AhoCorasick(['cat']);
-    const calls: [string, string, string][] = [];
-    Array.from(aho.replaceSync(['x cat y'], bracket, (detect, left, right) => {
-      calls.push([detect, left, right]);
-      return true;
-    }));
-    expect(calls).toEqual([
-      ['cat', ' ', 'c'], // left edge: char before the keyword and its first char
-      ['cat', 't', ' '], // right edge: last char of the keyword and the char after
-    ]);
-  });
-
-  test('boundary function is not called at text start / end', () => {
-    const aho = new AhoCorasick(['cat']);
-    const calls: [string, string, string][] = [];
-    const result = Array.from(aho.replaceSync(['cat'], bracket, (detect, left, right) => {
-      calls.push([detect, left, right]);
-      return false;
-    })).join('');
-    // both edges touch the text boundary, so the match is accepted without asking
-    expect(calls).toEqual([]);
-    expect(result).toBe('[cat]');
+  test('target controls which keywords require the boundary', () => {
+    // only "cat" is matched as a whole word; "at" matches anywhere
+    const entry: BoundaryEntry = {
+      target: (keyword) => keyword === 'cat',
+      boundary: (left, right) => !(/\w/.test(left) && /\w/.test(right)),
+    };
+    const aho = new AhoCorasick(['cat', 'at'], entry);
+    const result = Array.from(aho.replaceSync(['scat cat'], bracket)).join('');
+    expect(result).toBe('sc[at] [cat]');
   });
 
   test('rejected match does not suppress later matches', () => {
-    const aho = new AhoCorasick(['cat']);
-    const result = Array.from(aho.replaceSync(['catcat cat'], bracket, wordBoundary)).join('');
-    expect(result).toBe('catcat [cat]');
+    expect(replaceWord(['cat'], ['catcat cat'])).toBe('catcat [cat]');
   });
 
   test('greedy longest match works with boundary', () => {
-    const aho = new AhoCorasick(['cat', 'cats']);
-    const result = Array.from(aho.replaceSync(['cats cat'], bracket, wordBoundary)).join('');
-    expect(result).toBe('[cats] [cat]');
+    expect(replaceWord(['cat', 'cats'], ['cats cat'])).toBe('[cats] [cat]');
   });
 
   test('non-word characters around multibyte keywords count as boundaries', () => {
-    const aho = new AhoCorasick(['東京']);
-    const result = Array.from(aho.replaceSync(['東京と東京都'], bracket, wordBoundary)).join('');
     // kanji is not a \w word character, so every occurrence is boundary-delimited
-    expect(result).toBe('[東京]と[東京]都');
+    expect(replaceWord(['東京'], ['東京と東京都'])).toBe('[東京]と[東京]都');
   });
 
   test('omitted boundary replaces everywhere', () => {
@@ -543,23 +503,23 @@ describe('replaceSync with boundary', () => {
 
       const keywords = Array.from({ length: 1 + Math.floor(rand() * 4) }, () => randStr(1 + Math.floor(rand() * 8)));
       const text = randStr(200 + Math.floor(rand() * 300));
-      const aho = new AhoCorasick(keywords);
+      const aho = new AhoCorasick(keywords, wordBoundary);
       // single chunk never repositions mid-stream, so it serves as the reference
-      const expected = Array.from(aho.replaceSync([text], bracket, wordBoundary)).join('');
+      const expected = Array.from(aho.replaceSync([text], bracket)).join('');
 
       for (const chunkLen of [1, 3, 7, 30]) {
         const chunks: string[] = [];
         for (let i = 0; i < text.length; i += chunkLen) {
           chunks.push(text.slice(i, i + chunkLen));
         }
-        const result = Array.from(aho.replaceSync(chunks, bracket, wordBoundary)).join('');
+        const result = Array.from(aho.replaceSync(chunks, bracket)).join('');
         expect(result, `seed=${seed} chunkLen=${chunkLen} keywords=${JSON.stringify(keywords)}`).toBe(expected);
       }
     }
   });
 
   test('boundary with long text across amortization reposition', () => {
-    const aho = new AhoCorasick(['cat']);
+    const aho = new AhoCorasick(['cat'], wordBoundary);
     const unit = 'cat scat cats concatenate cat, ';
     let text = '';
     for (let i = 0; i < 200; i++) {
@@ -572,39 +532,42 @@ describe('replaceSync with boundary', () => {
       for (let i = 0; i < text.length; i += chunkLen) {
         chunks.push(text.slice(i, i + chunkLen));
       }
-      const result = Array.from(aho.replaceSync(chunks, bracket, wordBoundary)).join('');
+      const result = Array.from(aho.replaceSync(chunks, bracket)).join('');
       expect(result, `chunkLen=${chunkLen}`).toBe(expected);
     }
   });
 });
 
 describe('replaceAsync with boundary', () => {
-  const wordBoundary: BoundaryFunc = (_, left, right) => !(/\w/.test(left) && /\w/.test(right));
+  const wordBoundary: BoundaryEntry = {
+    target: () => true,
+    boundary: (left, right) => !(/\w/.test(left) && /\w/.test(right)),
+  };
 
-  const replaceAsyncAll = async (aho: AhoCorasick, chunks: string[], boundary?: BoundaryFunc) => {
+  const replaceAsyncAll = async (aho: AhoCorasick, chunks: string[]) => {
     async function* gen() { for (const chunk of chunks) { yield chunk; } }
     const parts: string[] = [];
-    for await (const part of aho.replaceAsync(gen(), (match) => `[${match}]`, boundary)) {
+    for await (const part of aho.replaceAsync(gen(), (match) => `[${match}]`)) {
       parts.push(part);
     }
     return parts.join('');
   };
 
   test('standalone keyword is replaced, keyword inside a larger word is kept', async () => {
-    const aho = new AhoCorasick(['cat']);
-    expect(await replaceAsyncAll(aho, ['a cat and category'], wordBoundary)).toBe('a [cat] and category');
+    const aho = new AhoCorasick(['cat'], wordBoundary);
+    expect(await replaceAsyncAll(aho, ['a cat and category'])).toBe('a [cat] and category');
   });
 
   test('match finalized at flush still respects the boundary', async () => {
-    const aho = new AhoCorasick(['cat']);
+    const aho = new AhoCorasick(['cat'], wordBoundary);
     // the match ends at the end of the stream, so it is decided in cleanup
-    expect(await replaceAsyncAll(aho, ['scat'], wordBoundary)).toBe('scat');
-    expect(await replaceAsyncAll(aho, ['the cat'], wordBoundary)).toBe('the [cat]');
+    expect(await replaceAsyncAll(aho, ['scat'])).toBe('scat');
+    expect(await replaceAsyncAll(aho, ['the cat'])).toBe('the [cat]');
   });
 
   test('boundary is checked across chunk edges', async () => {
-    const aho = new AhoCorasick(['cat']);
-    expect(await replaceAsyncAll(aho, ['s', 'cat', ' ca', 't'], wordBoundary)).toBe('scat [cat]');
+    const aho = new AhoCorasick(['cat'], wordBoundary);
+    expect(await replaceAsyncAll(aho, ['s', 'cat', ' ca', 't'])).toBe('scat [cat]');
   });
 
   test('omitted boundary replaces everywhere', async () => {
@@ -615,7 +578,7 @@ describe('replaceAsync with boundary', () => {
 
 describe('Boundary.WhiteSpace', () => {
   const replace = (keywords: string[], chunks: string[], replacement: string) =>
-    Array.from(new AhoCorasick(keywords).replaceSync(chunks, () => replacement, Boundary.WhiteSpace())).join('');
+    Array.from(new AhoCorasick(keywords, Boundary.WhiteSpace()).replaceSync(chunks, () => replacement)).join('');
 
   test('replaces a space-delimited word', () => {
     expect(replace(['cat'], ['a cat and category'], 'DOG')).toBe('a DOG and category');
@@ -642,7 +605,7 @@ describe('Boundary.WhiteSpace', () => {
 
 describe('Boundary.AsciiTerm', () => {
   const replace = (keywords: string[], chunks: string[], replacement: string) =>
-    Array.from(new AhoCorasick(keywords).replaceSync(chunks, () => replacement, Boundary.AsciiTerm())).join('');
+    Array.from(new AhoCorasick(keywords, Boundary.AsciiTerm()).replaceSync(chunks, () => replacement)).join('');
 
   test('replaces standalone word but keeps substring inside a larger word', () => {
     expect(replace(['cat'], ['a cat and category'], 'DOG')).toBe('a DOG and category');
@@ -708,29 +671,29 @@ describe('Boundary.AsciiTerm', () => {
   });
 
   test('falls back to a shorter keyword when the longer one is blocked by the boundary', () => {
-    const aho = new AhoCorasick(['ABC CD', 'ABC']);
+    const aho = new AhoCorasick(['ABC CD', 'ABC'], Boundary.AsciiTerm());
     // "ABC CD" is present but followed by 'E', so it is not a whole term;
     // the earlier "ABC" match must survive instead
-    const result = Array.from(aho.replaceSync(['ABC CDE'], (match) => `[${match}]`, Boundary.AsciiTerm())).join('');
+    const result = Array.from(aho.replaceSync(['ABC CDE'], (match) => `[${match}]`)).join('');
     expect(result).toBe('[ABC] CDE');
   });
 
   test('the longer keyword wins when it is a whole term', () => {
-    const aho = new AhoCorasick(['ABC CD', 'ABC']);
-    const result = Array.from(aho.replaceSync(['ABC CD END'], (match) => `[${match}]`, Boundary.AsciiTerm())).join('');
+    const aho = new AhoCorasick(['ABC CD', 'ABC'], Boundary.AsciiTerm());
+    const result = Array.from(aho.replaceSync(['ABC CD END'], (match) => `[${match}]`)).join('');
     expect(result).toBe('[ABC CD] END');
   });
 
   test('fallback to the shorter keyword works across chunk edges', () => {
-    const aho = new AhoCorasick(['ABC CD', 'ABC']);
-    const result = Array.from(aho.replaceSync(['ABC C', 'DE'], (match) => `[${match}]`, Boundary.AsciiTerm())).join('');
+    const aho = new AhoCorasick(['ABC CD', 'ABC'], Boundary.AsciiTerm());
+    const result = Array.from(aho.replaceSync(['ABC C', 'DE'], (match) => `[${match}]`)).join('');
     expect(result).toBe('[ABC] CDE');
   });
 });
 
 describe('Boundary.AsciiEdge', () => {
   const replace = (keywords: string[], chunks: string[], replacement: string) =>
-    Array.from(new AhoCorasick(keywords).replaceSync(chunks, () => replacement, Boundary.AsciiEdge())).join('');
+    Array.from(new AhoCorasick(keywords, Boundary.AsciiEdge()).replaceSync(chunks, () => replacement)).join('');
 
   test('replaces standalone word but keeps substring inside a larger word', () => {
     expect(replace(['cat'], ['a cat and category'], 'DOG')).toBe('a DOG and category');
@@ -751,7 +714,7 @@ describe('Boundary.AsciiEdge', () => {
 
   test('unlike AsciiTerm, the edge check applies to every keyword', () => {
     // '@' makes "ab@cd" not an ascii term: AsciiTerm skips the check, AsciiEdge does not
-    const term = Array.from(new AhoCorasick(['ab@cd']).replaceSync(['xab@cdy'], () => 'X', Boundary.AsciiTerm())).join('');
+    const term = Array.from(new AhoCorasick(['ab@cd'], Boundary.AsciiTerm()).replaceSync(['xab@cdy'], () => 'X')).join('');
     expect(term).toBe('xXy');
     expect(replace(['ab@cd'], ['xab@cdy'], 'X')).toBe('xab@cdy');
     expect(replace(['ab@cd'], ['x ab@cd y'], 'X')).toBe('x X y');
@@ -761,16 +724,16 @@ describe('Boundary.AsciiEdge', () => {
 describe('Boundary.By', () => {
   test('custom separator regex controls the boundary', () => {
     // only '/' separates words
-    const aho = new AhoCorasick(['cat']);
-    const result = Array.from(aho.replaceSync(['/cat/ a cat'], () => 'X', Boundary.By(/\//))).join('');
+    const aho = new AhoCorasick(['cat'], Boundary.By(/\//));
+    const result = Array.from(aho.replaceSync(['/cat/ a cat'], () => 'X')).join('');
     // "/cat/" is delimited by '/' on both sides -> replaced;
     // " cat" ends the text (right ok) but left is ' ' which is NOT a separator -> kept
     expect(result).toBe('/X/ a cat');
   });
 
   test('whitespace separator reproduces WhiteSpace behaviour', () => {
-    const aho = new AhoCorasick(['cat']);
-    const result = Array.from(aho.replaceSync(['(cat) cat'], () => 'X', Boundary.By(/\s/))).join('');
+    const aho = new AhoCorasick(['cat'], Boundary.By(/\s/));
+    const result = Array.from(aho.replaceSync(['(cat) cat'], () => 'X')).join('');
     // '(' and ')' are not separators, so "(cat)" is not whole; standalone "cat" is
     expect(result).toBe('(cat) X');
   });
@@ -781,7 +744,7 @@ describe('replaceStream with boundary', () => {
   const expected = 'scat [cat]';
 
   test('Web Stream replaceStream accepts boundary', async () => {
-    const aho = new AhoCorasickWebStream(['cat']);
+    const aho = new AhoCorasickWebStream(['cat'], Boundary.AsciiTerm());
     const readable = new ReadableStream<string>({
       start(controller) {
         for (const chunk of chunks) {
@@ -790,7 +753,7 @@ describe('replaceStream with boundary', () => {
         controller.close();
       }
     });
-    const transform = aho.replaceStream((match) => `[${match}]`, Boundary.AsciiTerm());
+    const transform = aho.replaceStream((match) => `[${match}]`);
 
     let result = '';
     const writable = new WritableStream<string>({
@@ -804,7 +767,7 @@ describe('replaceStream with boundary', () => {
   });
 
   test('Node Stream replaceStream accepts boundary', async () => {
-    const aho = new AhoCorasickNodeStream(['cat']);
+    const aho = new AhoCorasickNodeStream(['cat'], Boundary.AsciiTerm());
     const readable_web = new ReadableStream<string>({
       start(controller) {
         for (const chunk of chunks) {
@@ -816,7 +779,7 @@ describe('replaceStream with boundary', () => {
     const { Readable, Writable } = await import("node:stream" as any);
     const readable_node = Readable.fromWeb(readable_web, { objectMode: true });
 
-    const transform = aho.replaceStream((match) => `[${match}]`, Boundary.AsciiTerm());
+    const transform = aho.replaceStream((match) => `[${match}]`);
 
     let result = '';
     const writable_web = new WritableStream<string>({

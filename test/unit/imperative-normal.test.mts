@@ -1,8 +1,7 @@
 import { test, expect, describe } from 'vitest';
 
 import { AhoCorasick } from '../../src/stream/imperative/normal.mts'
-import { Boundary, type BoundaryFunc } from '../../src/stream/base.mts'
-import RingBuffer from '../../src/stream/ringbuffer.mts'
+import { Boundary, type BoundaryEntry } from '../../src/stream/base.mts'
 
 // drive an ImperativeHandle over the chunks and join every emitted part
 const drive = <T,>(handle: { write(chunk: string): T[]; end(): T[] }, chunks: string[]): T[] => {
@@ -12,8 +11,8 @@ const drive = <T,>(handle: { write(chunk: string): T[]; end(): T[] }, chunks: st
   return parts;
 };
 
-const replace = (keywords: string[], chunks: string[], replacer: (m: string) => string, boundary?: BoundaryFunc) =>
-  drive(new AhoCorasick(keywords).replaceSync(replacer, boundary), chunks).join('');
+const replace = (keywords: string[], chunks: string[], replacer: (m: string) => string, boundary?: BoundaryEntry) =>
+  drive(new AhoCorasick(keywords, boundary).replaceSync(replacer), chunks).join('');
 
 describe('replaceSync', () => {
   test('Basic replacement with single keyword', () => {
@@ -116,7 +115,11 @@ describe('replaceSync', () => {
 });
 
 describe('replaceSync equivalence with single-chunk reference', () => {
-  const wordBoundary: BoundaryFunc = (_, left, right) => !(/\w/.test(left) && /\w/.test(right));
+  // every keyword is matched as a whole word: no \w char may touch either edge
+  const wordBoundary: BoundaryEntry = {
+    target: () => true,
+    boundary: (left, right) => !(/\w/.test(left) && /\w/.test(right)),
+  };
   const bracket = (m: string) => `[${m}]`;
 
   test('chunked write() output equals single write() output', () => {
@@ -147,7 +150,11 @@ describe('replaceSync equivalence with single-chunk reference', () => {
 });
 
 describe('replaceSync with boundary', () => {
-  const wordBoundary: BoundaryFunc = (_, left, right) => !(/\w/.test(left) && /\w/.test(right));
+  // every keyword is matched as a whole word: no \w char may touch either edge
+  const wordBoundary: BoundaryEntry = {
+    target: () => true,
+    boundary: (left, right) => !(/\w/.test(left) && /\w/.test(right)),
+  };
   const bracket = (m: string) => `[${m}]`;
 
   test('standalone keyword is replaced, keyword inside a larger word is kept', () => {
@@ -169,7 +176,7 @@ describe('replaceSync with boundary', () => {
   });
 
   test('Boundary.AsciiTerm falls back to a shorter keyword when the longer one is blocked', () => {
-    const result = drive(new AhoCorasick(['ABC CD', 'ABC']).replaceSync((m) => `[${m}]`, Boundary.AsciiTerm()), ['ABC CDE']).join('');
+    const result = drive(new AhoCorasick(['ABC CD', 'ABC'], Boundary.AsciiTerm()).replaceSync((m) => `[${m}]`), ['ABC CDE']).join('');
     expect(result).toBe('[ABC] CDE');
   });
 });
@@ -225,3 +232,46 @@ describe('replaceAsync (Promise-returning replacer)', () => {
   });
 });
 
+describe('leftmost-longest regression with Boundary.AsciiEdge (fuzz findings)', () => {
+  const bracket = (m: string) => `[${m}]`;
+  const replaceEdge = (keywords: string[], chunks: string[]) =>
+    drive(new AhoCorasick(keywords, Boundary.AsciiEdge()).replaceSync(bracket), chunks).join('');
+
+  // the same text must produce the same output under any chunking
+  const check = (keywords: string[], text: string, expected: string) => {
+    const chunkings: string[][] = [[text], text.split('')];
+    for (const n of [2, 3, 5]) {
+      const parts: string[] = [];
+      for (let i = 0; i < text.length; i += n) { parts.push(text.slice(i, i + n)); }
+      chunkings.push(parts);
+    }
+    for (const chunks of chunkings) {
+      expect(replaceEdge(keywords, chunks), `chunks=${JSON.stringify(chunks)}`).toBe(expected);
+    }
+  };
+
+  test('trailing short keyword right after a longer match at end of text', () => {
+    check([' ', '  ', 'c', 'a '], ' a  ', '[ ][a ][ ]');
+    check(['cbc', ' ', '   '], 'ca c c bba    ', 'ca[ ]c[ ]c[ ]bba[   ][ ]');
+    check(['cb', ' ', '  ', 'bbc'], 'baaaca   bccc b   ', 'baaaca[  ][ ]bccc[ ]b[  ][ ]');
+  });
+
+  test('flush at end of text picks the shorter suffix keyword after a longer match', () => {
+    check([' ', 'bb ', '  b', '  '], 'a  b   ', 'a[  b][  ][ ]');
+  });
+
+  test('shorter suffix keyword wins when the longest one overlaps a pending candidate', () => {
+    check(['   ca', '  ', ' '], 'aaaab aabcaa   abc', 'aaaab[ ]aabcaa[  ][ ]abc');
+  });
+
+  test('a losing candidate must not drop already-valid pending matches', () => {
+    check(['bb', '   ', 'abb    aa', ' ', ' b      a'], ' b b     b b a  aa b aab   a b b  ',
+      '[ ]b[ ]b[   ][ ][ ]b[ ]b[ ]a[ ][ ]aa[ ]b[ ]aab[   ]a[ ]b[ ]b[ ][ ]');
+    check([' ', '  b  bbbba', 'a ', 'a    ab  ', '    '], 'ab  aabba a    aa   bba    aaba ab b  b   aa',
+      'ab[ ][ ]aabba[ ][a ][ ][ ][ ]aa[ ][ ][ ]bba[    ]aaba[ ]ab[ ]b[ ][ ]b[ ][ ][ ]aa');
+    check(['        a', ' ', '  ', 'a   a   a', 'aa  bbbaa ', '    '], '       a   ab a a  b  a  abb    a    a  ba bb       a aba ',
+      '[    ][  ][ ]a[  ][ ]ab[ ]a[ ]a[  ]b[  ]a[  ]abb[    ]a[    ]a[  ]ba[ ]bb[    ][  ][ ]a[ ]aba[ ]');
+    check([' b      a', ' a  ', ' a  a   b', ' ', '  ', ' b '], '  aaab bb   abb  b           a  a   ab    ',
+      '[  ]aaab[ ]bb[  ][ ]abb[  ]b[  ][  ][  ][  ][  ][ a  ]a[  ][ ]ab[  ][  ]');
+  });
+});

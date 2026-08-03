@@ -1,8 +1,6 @@
 import Deque from "../deque.mts";
-import type { BoundaryFunc } from "../base.mts";
 import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleReplacer } from "../stream.mts";
 import Collector from "../collector.mts";
-import RingBuffer from "../ringbuffer.mts";
 import { AbstractStreamAhoCorasick, type Match } from "../base.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";
@@ -32,23 +30,23 @@ const AsyncImperativeHandle = {
 };
 
 export class AhoCorasick extends AbstractStreamAhoCorasick {
-  public replaceSync(replacer: Replacer, boundary?: BoundaryFunc): ImperativeHandle<string, string> {
+  public replaceSync(replacer: Replacer): ImperativeHandle<string, string> {
     const deque = new Deque<Match>();
-    const ring = new RingBuffer<string>(this.ringbufferCapacity);
     const collector = new Collector();
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
     let state = this.root;
+    let prev: string | null = null;
     let confirmed_offset = 0;
 
     const write = (chunk: string): ImperativeResult<string, string> => {
-      const generator = this.processTextSync(state, deque, ring, chunk, confirmed_offset, collector, collect, detect, boundary);
+      const generator = this.processTextSync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
       const confirmed : ImperativeResult<string, string> = []
       while (true) {
         const { value, done } = generator.next();
         if (done) {
-          [state, confirmed_offset] = value;
+          [state, prev, confirmed_offset] = value;
           break;
         }
         confirmed .push(value);
@@ -56,28 +54,28 @@ export class AhoCorasick extends AbstractStreamAhoCorasick {
       return confirmed ;
     };
     const end = (): ImperativeResult<string, string> => {
-      return Array.from(this.cleanupTextSync(state, deque, ring, confirmed_offset, collector, collect, detect, boundary));
+      return Array.from(this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect));
     };
     return ImperativeHandle.from<string, string>(write, end);
   }
 
-  public replaceAsync(replacer: AsyncableReplacer, boundary?: BoundaryFunc): AsyncImperativeHandle<string, string> {
+  public replaceAsync(replacer: AsyncableReplacer): AsyncImperativeHandle<string, string> {
     const deque = new Deque<Match>();
-    const ring = new RingBuffer<string>(this.ringbufferCapacity);
     const collector = new Collector();
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleAsyncableReplacer(keyword, replacer);
 
     let state = this.root;
+    let prev: string | null = null;
     let confirmed_offset = 0;
 
     const write = async (chunk: string): AsyncImperativeResult<string, string> => {
-      const generator = this.processTextAsync(state, deque, ring, chunk, confirmed_offset, collector, collect, detect, boundary);
+      const generator = this.processTextAsync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
       const confirmed : ImperativeResult<string, string> = []
       while (true) {
         const { value, done } = await generator.next();
         if (done) {
-          [state, confirmed_offset] = value;
+          [state, prev, confirmed_offset] = value;
           break;
         }
         confirmed .push(value);
@@ -86,7 +84,7 @@ export class AhoCorasick extends AbstractStreamAhoCorasick {
     };
     const end = async (): AsyncImperativeResult<string, string> => {
       const confirmed : ImperativeResult<string, string> = []
-      for await (const chunk of this.cleanupTextAsync(state, deque, ring, confirmed_offset, collector, collect, detect, boundary)) {
+      for await (const chunk of this.cleanupTextAsync(state, deque, confirmed_offset, collector, collect, detect)) {
         confirmed.push(chunk);
       }
       return confirmed
@@ -94,23 +92,23 @@ export class AhoCorasick extends AbstractStreamAhoCorasick {
     return AsyncImperativeHandle.from<string, string>(write, end);
   }
 
-  public tokenizeSync<T, K>(normal: (chunk: string) => T, target: (keyword: string) => K, boundary?: BoundaryFunc): ImperativeHandle<T, K> {
+  public tokenizeSync<T, K>(normal: (chunk: string) => T, target: (keyword: string) => K): ImperativeHandle<T, K> {
     const deque = new Deque<Match>();
-    const ring = new RingBuffer<string>(this.ringbufferCapacity);
     const collector = new Collector();
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
     const detect = (keyword: string) => target(keyword);
 
     let state = this.root;
+    let prev: string | null = null;
     let confirmed_offset = 0;
 
     const write = (chunk: string): ImperativeResult<T, K> => {
-      const generator = this.processTextSync(state, deque, ring, chunk, confirmed_offset, collector, collect, detect, boundary);
+      const generator = this.processTextSync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
       const confirmed : ImperativeResult<T, K> = []
       while (true) {
         const { value, done } = generator.next();
         if (done) {
-          [state, confirmed_offset] = value;
+          [state, prev, confirmed_offset] = value;
           break;
         }
         confirmed .push(value);
@@ -118,28 +116,28 @@ export class AhoCorasick extends AbstractStreamAhoCorasick {
       return confirmed ;
     };
     const end = (): ImperativeResult<T, K> => {
-      return Array.from(this.cleanupTextSync(state, deque, ring, confirmed_offset, collector, collect, detect, boundary));
+      return Array.from(this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect));
     };
     return ImperativeHandle.from<T, K>(write, end);
   }
 
-  public tokenizeAsync<T, K>(normal: (chunk: string) => T, target: (keyword: string) => K, boundary?: BoundaryFunc): AsyncImperativeHandle<T, K> {
+  public tokenizeAsync<T, K>(normal: (chunk: string) => T, target: (keyword: string) => K): AsyncImperativeHandle<T, K> {
     const deque = new Deque<Match>();
-    const ring = new RingBuffer<string>(this.ringbufferCapacity);
     const collector = new Collector();
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
     const detect = (keyword: string) => target(keyword);
 
     let state = this.root;
+    let prev: string | null = null;
     let confirmed_offset = 0;
 
     const write = async (chunk: string): AsyncImperativeResult<T, K> => {
-      const generator = this.processTextAsync(state, deque, ring, chunk, confirmed_offset, collector, collect, detect, boundary);
+      const generator = this.processTextAsync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
       const confirmed : ImperativeResult<T, K> = []
       while (true) {
         const { value, done } = await generator.next();
         if (done) {
-          [state, confirmed_offset] = value;
+          [state, prev, confirmed_offset] = value;
           break;
         }
         confirmed .push(value);
@@ -148,7 +146,7 @@ export class AhoCorasick extends AbstractStreamAhoCorasick {
     };
     const end = async (): AsyncImperativeResult<T, K> => {
       const confirmed : ImperativeResult<T, K> = []
-      for await (const chunk of this.cleanupTextAsync(state, deque, ring, confirmed_offset, collector, collect, detect, boundary)) {
+      for await (const chunk of this.cleanupTextAsync(state, deque, confirmed_offset, collector, collect, detect)) {
         confirmed.push(chunk);
       }
       return confirmed
