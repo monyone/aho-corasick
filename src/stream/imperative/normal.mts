@@ -49,9 +49,9 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
           [state, prev, confirmed_offset] = value;
           break;
         }
-        confirmed .push(value);
+        confirmed.push(value);
       }
-      return confirmed ;
+      return confirmed;
     };
     const end = (): ImperativeResult<string, string> => {
       return Array.from(this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect));
@@ -78,7 +78,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
           [state, prev, confirmed_offset] = value;
           break;
         }
-        confirmed .push(value);
+        confirmed.push(value);
       }
       return confirmed;
     };
@@ -87,7 +87,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
       for await (const chunk of this.cleanupTextAsync(state, deque, confirmed_offset, collector, collect, detect)) {
         confirmed.push(chunk);
       }
-      return confirmed
+      return confirmed;
     };
     return AsyncImperativeHandle.from<string, string>(write, end);
   }
@@ -111,9 +111,9 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
           [state, prev, confirmed_offset] = value;
           break;
         }
-        confirmed .push(value);
+        confirmed.push(value);
       }
-      return confirmed ;
+      return confirmed;
     };
     const end = (): ImperativeResult<T, K> => {
       return Array.from(this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect));
@@ -140,9 +140,9 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
           [state, prev, confirmed_offset] = value;
           break;
         }
-        confirmed .push(value);
+        confirmed.push(value);
       }
-      return confirmed ;
+      return confirmed;
     };
     const end = async (): AsyncImperativeResult<T, K> => {
       const confirmed : ImperativeResult<T, K> = []

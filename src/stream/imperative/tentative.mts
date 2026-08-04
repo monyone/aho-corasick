@@ -56,7 +56,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
           [state, prev, confirmed_offset] = value;
           break;
         }
-        confirmed .push(value);
+        confirmed.push(value);
       }
       return { confirmed , tentative: state.tentative! }
     };
@@ -85,7 +85,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
           [state, prev, confirmed_offset] = value;
           break;
         }
-        confirmed .push(value);
+        confirmed.push(value);
       }
       return { confirmed, tentative: state.tentative! }
     };
@@ -94,7 +94,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
       for await (const chunk of this.cleanupTextAsync(state, deque, confirmed_offset, collector, collect, detect)) {
         confirmed.push(chunk);
       }
-      return confirmed
+      return confirmed;
     };
     return AsyncImperativeWithTentativeHandle.from<string, string, string>(write, end);
   }
@@ -147,7 +147,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
           [state, prev, confirmed_offset] = value;
           break;
         }
-        confirmed .push(value);
+        confirmed.push(value);
       }
       return { confirmed , tentative: tentative(state.tentative!) }
     };
@@ -156,7 +156,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
       for await (const chunk of this.cleanupTextAsync(state, deque, confirmed_offset, collector, collect, detect)) {
         confirmed.push(chunk);
       }
-      return confirmed
+      return confirmed;
     };
     return AsyncImperativeWithTentativeHandle.from<T, K, U>(write, end);
   }
