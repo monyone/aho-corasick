@@ -41,8 +41,8 @@ const CLOSE: unique symbol = Symbol();
 type Sentinel = typeof OPEN | typeof CLOSE;
 type Sym = string | Sentinel;
 
-const withSentinel = (keyword: string, entry?: BoundaryEntry): Sym[][] => {
-  if (entry == null) { return [keyword.split('')]; }
+const withSentinel = (keyword: string, entry?: BoundaryEntry): (Sym[] | string)[] => {
+  if (entry == null) {return [keyword]; }
   if (keyword === '') {
     if (entry.target(keyword)) {
       return [[OPEN, CLOSE]];
@@ -74,7 +74,7 @@ const withSentinel = (keyword: string, entry?: BoundaryEntry): Sym[][] => {
       [... syms],
     ];
   }
-}
+};
 
 export const isPromiseLike = <T,>(value: unknown): value is PromiseLike<T> => {
   const isObject = typeof(value) === "object" && value !== null;
@@ -222,64 +222,62 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     }
   }
 
-  private symbolize(chunk: string, prev: string | null): Sym[] {
-    if (this.boundaryConfig == null) { return chunk.split(''); }
-    const syms: Sym[] = [];
-    for (let i = 0; i < chunk.length; i++) {
-      const ch = chunk[i];
-
-      if (prev == null) {
-        syms.push(OPEN);
-      } else if (this.boundaryConfig.boundary(prev, ch)) {
-        syms.push(CLOSE, OPEN);
-      }
-      syms.push(ch);
-      prev = ch;
-    }
-    return syms;
-  }
-
   protected *processTextSync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Generator<T | K, [trie: Node, prev: string | null, confirmed_offset: number], unknown> {
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
     const remain_offset = collector.length;
     collector.feed(chunk);
 
-    const symbols = this.symbolize(chunk, prev);
-    prev = chunk.length > 0 ? chunk[chunk.length - 1] : prev;
     let index = 0;
-    for (let i = 0; i < symbols.length; i++) {
-      const ch = symbols[i];
-      const width = typeof(ch) === 'string' ? 1 : 0;
+    for (let i = 0; i < chunk.length; i++) {
+      const char = chunk[i];
+      let sentinel: Sentinel | null = null;
+      if (this.boundaryConfig != null) {
+        if (prev == null) { sentinel = OPEN; }
+        else if (this.boundaryConfig.boundary(prev, char)) { sentinel = CLOSE; }
+      }
 
-      this.maintainDeque(state, deque, index, remain_offset);
-      // 空キーワード の場合は追加対応
-      this.maintainDeque(this.root, deque, index, remain_offset);
+      LOOP:
+      while (true) {
+        const ch: Sym = sentinel ?? char;
+        const width = typeof(ch) === 'string' ? 1 : 0;
 
-      if (!state.can(ch)) { // use failure
-        const old_depth = state.depth;
-        while (state !== this.root && !(state.can(ch))) {
-          state = state.failure!;
-        }
+        this.maintainDeque(state, deque, index, remain_offset);
+        // 空キーワード の場合は追加対応
+        this.maintainDeque(this.root, deque, index, remain_offset);
 
-        const new_depth = state.depth;
-        confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : width);
-        while (!deque.empty()) {
-          const first = deque.peekFirst()!;
-          if (first.begin >= confirmed_index) { break; }
-
-          if (output_begin < first.begin) {
-            yield* collect(output_begin, first.begin);
+        if (!state.can(ch)) { // use failure
+          const old_depth = state.depth;
+          while (state !== this.root && !(state.can(ch))) {
+            state = state.failure!;
           }
-          collector.skip(first.end - first.begin);
-          yield detect(first.keyword);
-          output_begin = first.end;
 
-          deque.pollFirst()!;
+          const new_depth = state.depth;
+          confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : width);
+          while (!deque.empty()) {
+            const first = deque.peekFirst()!;
+            if (first.begin >= confirmed_index) { break; }
+
+            if (output_begin < first.begin) {
+              yield* collect(output_begin, first.begin);
+            }
+            collector.skip(first.end - first.begin);
+            yield detect(first.keyword);
+            output_begin = first.end;
+
+            deque.pollFirst()!;
+          }
+        }
+        state = state.go(ch) ?? this.root;
+        index += width;
+
+        switch (sentinel) {
+          case CLOSE: sentinel = OPEN; break;
+          case OPEN: sentinel = null; break;
+          case null: break LOOP;
         }
       }
-      state = state.go(ch) ?? this.root;
-      index += width;
+      prev = char;
     }
 
     if (output_begin < confirmed_index) {
@@ -295,43 +293,59 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     const remain_offset = collector.length;
     collector.feed(chunk);
 
-    const symbols = this.symbolize(chunk, prev);
-    prev = chunk.length > 0 ? chunk[chunk.length - 1] : prev;
     let index = 0;
-    for (let i = 0; i < symbols.length; i++) {
-      const ch = symbols[i];
-      const width = typeof(ch) === 'string' ? 1 : 0;
+    for (let i = 0; i < chunk.length; i++) {
+      const char = chunk[i];
+      let sentinel: Sentinel | null = null;
+      if (this.boundaryConfig != null) {
+        if (prev == null) { sentinel = OPEN; }
+        else if (this.boundaryConfig.boundary(prev, char)) { sentinel = CLOSE; }
+      }
 
-      this.maintainDeque(state, deque, index, remain_offset);
-      // 空キーワード の場合は追加対応
-      this.maintainDeque(this.root, deque, index, remain_offset);
+      LOOP:
+      while (true) {
+        const ch: Sym = sentinel ?? char;
+        const width = typeof(ch) === 'string' ? 1 : 0;
 
-      if (!state.can(ch)) { // use failure
-        const old_depth = state.depth;
-        while (state !== this.root && !(state.can(ch))) {
-          state = state.failure!;
+        this.maintainDeque(state, deque, index, remain_offset);
+        // 空キーワード の場合は追加対応
+        this.maintainDeque(this.root, deque, index, remain_offset);
+
+        if (!state.can(ch)) { // use failure
+          const old_depth = state.depth;
+          while (state !== this.root && !(state.can(ch))) {
+            state = state.failure!;
+          }
+
+          const new_depth = state.depth;
+          confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : width);
+          while (!deque.empty()) {
+            const first = deque.peekFirst()!;
+            if (first.begin >= confirmed_index) { break; }
+
+            if (output_begin < first.begin) {
+              yield* collect(output_begin, first.begin);
+            }
+            {
+              collector.skip(first.end - first.begin);
+              const replaced = detect(first.keyword);
+              yield !isPromiseLike<K>(replaced) ? replaced : await replaced;
+            }
+            output_begin = first.end;
+
+            deque.pollFirst()!;
+          }
         }
-        const new_depth = state.depth;
-        confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : width);
-        while (!deque.empty()) {
-          const first = deque.peekFirst()!;
-          if (first.begin >= confirmed_index) { break; }
+        state = state.go(ch) ?? this.root;
+        index += width;
 
-          if (output_begin < first.begin) {
-            yield* collect(output_begin, first.begin);
-          }
-          {
-            collector.skip(first.end - first.begin);
-            const replaced = detect(first.keyword);
-            yield !isPromiseLike<K>(replaced) ? replaced : await replaced;
-          }
-          output_begin = first.end;
-
-          deque.pollFirst()!;
+        switch (sentinel) {
+          case CLOSE: sentinel = OPEN; break;
+          case OPEN: sentinel = null; break;
+          case null: break LOOP;
         }
       }
-      state = state.go(ch) ?? this.root;
-      index += width;
+      prev = char;
     }
 
     if (output_begin < confirmed_index) {
