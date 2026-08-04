@@ -346,12 +346,14 @@ export class AhoCorasick {
           push(begin, end, keyword);
         }
 
-        if (i === text.length - 1 && sentinel == null) {
-          sentinel = CLOSE;
-          i += 1;
-          continue LOOP;
-        } else if (i >= text.length) {
-          break LOOP;
+        if (this.boundaryConfig != null) {
+          if (i === text.length - 1 && sentinel == null) {
+            sentinel = CLOSE;
+            i += 1;
+            continue LOOP;
+          } else if (i >= text.length) {
+            break LOOP;
+          }
         }
         switch (sentinel) {
           case CLOSE: sentinel = OPEN; break;

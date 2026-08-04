@@ -432,7 +432,7 @@ export class AhoCorasick {
         // "" (empty) がありうるので、そのケースを対応
         {
           const keyword = this.trie.query(root);
-          if (keyword != null && width > 0) {
+          if (keyword != null) {
             const length = keyword.length;
             const end = i;
             const begin = end - length;
@@ -441,7 +441,6 @@ export class AhoCorasick {
         }
 
         node = this.trie.go(node, ch);
-
         {
           const keyword = this.trie.query(node);
           if (keyword != null) {
@@ -452,12 +451,14 @@ export class AhoCorasick {
           }
         }
 
-        if (i === text.length - 1 && sentinel == null) {
-          sentinel = CLOSE;
-          i += 1;
-          continue LOOP;
-        } else if (i >= text.length) {
-          break LOOP;
+        if (this.boundaryConfig != null) {
+          if (i === text.length - 1 && sentinel == null) {
+            sentinel = CLOSE;
+            i += 1;
+            continue LOOP;
+          } else if (i >= text.length) {
+            break LOOP;
+          }
         }
         switch (sentinel) {
           case CLOSE: sentinel = OPEN; break;
@@ -466,6 +467,17 @@ export class AhoCorasick {
         }
       }
       prev = char;
+    }
+
+    // "" (empty) がありうるので、そのケースを対応
+    {
+      const keyword = this.trie.query(root);
+      if (keyword != null) {
+        const length = keyword.length;
+        const end = text.length;
+        const begin = end - length;
+        push(begin, end, keyword);
+      }
     }
 
     return candidates;
