@@ -6,7 +6,7 @@ import type { AsyncImperativeResult, ImperativeResult } from "./normal.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
-export type { BoundaryFunc, Match } from "../base.mts";
+export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match } from "../base.mts";
 
 export type ImperativeWithTentativeResult<T, K, U> = {
   confirmed : ImperativeResult<T, K>;
@@ -58,7 +58,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
         }
         confirmed .push(value);
       }
-      return { confirmed , tentative: this.tentative.get(state)! }
+      return { confirmed , tentative: state.tentative! }
     };
     const end = (): ImperativeResult<string, string> => {
       return Array.from(this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect));
@@ -87,7 +87,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
         }
         confirmed .push(value);
       }
-      return { confirmed, tentative: this.tentative.get(state)! }
+      return { confirmed, tentative: state.tentative! }
     };
     const end = async (): AsyncImperativeResult<string, string> => {
       const confirmed : ImperativeResult<string, string> = []
@@ -120,7 +120,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
         }
         confirmed.push(value);
       }
-      return { confirmed , tentative: tentative(this.tentative.get(state)!) }
+      return { confirmed , tentative: tentative(state.tentative!) }
     };
     const end = (): ImperativeResult<T, K> => {
       return Array.from(this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect));
@@ -149,7 +149,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
         }
         confirmed .push(value);
       }
-      return { confirmed , tentative: tentative(this.tentative.get(state)!) }
+      return { confirmed , tentative: tentative(state.tentative!) }
     };
     const end = async (): AsyncImperativeResult<T, K> => {
       const confirmed : ImperativeResult<T, K> = []

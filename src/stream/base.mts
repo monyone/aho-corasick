@@ -6,7 +6,7 @@ export type BoundaryTarget = (keyword: string) => boolean;
 export type BoundaryFunc = (left: string, right: string) => boolean;
 export type CollectorFunc<T> = (begin: number, end: number) => Iterable<T>
 export type DetectFunc<K> = (keyword: string) => K;
-export type AsyncableDetectFunc<K> = (keyword: string) => K | Promise<K>;
+export type AsyncableDetectFunc<K> = (keyword: string) => K | PromiseLike<K>;
 
 export type BoundaryEntry = { target: BoundaryTarget, boundary: BoundaryFunc };
 export const Boundary = {
@@ -76,55 +76,62 @@ const withSentinel = (keyword: string, entry?: BoundaryEntry): Sym[][] => {
   }
 }
 
-export class Trie<T, K> {
-  public readonly parent: Trie<T, K> | null = null;
+export const isPromiseLike = <T,>(value: unknown): value is PromiseLike<T> => {
+  const isObject = typeof(value) === "object" && value !== null;
+  const isFunction = typeof(value) === "function";
+  return (isObject || isFunction) && typeof((value as PromiseLike<T>).then) === "function";
+};
+
+export class CRTPTrie<T, K, Self extends CRTPTrie<T, K, Self>> {
+  public readonly parent: Self | null = null;
   public readonly depth: number;
   private keyword: K | null = null;
-  private goto: Map<T, Trie<T, K>> = new Map<T, Trie<T, K>>();
+  private goto: Map<T, Self> = new Map<T, Self>();
 
-  public constructor(parent?: Trie<T, K>, depth: 0 | 1 = 1) {
+  public constructor(parent?: Self, depth: 0 | 1 = 1) {
     this.parent = parent ?? null;
     this.depth = parent == null ? 0 : parent.depth + depth;
   }
 
-  public can(s: T) {
+  public can(s: T): boolean {
     return this.goto.has(s);
   }
-  public go(s: T) {
+  public go(s: T): Self | undefined {
     return this.goto.get(s);
   }
-  public define(s: T, next: Trie<T, K>) {
-    return this.goto.set(s, next);
+  public define(s: T, next: Self): void {
+    this.goto.set(s, next);
   }
-  public undef(s: T) {
+  public undef(s: T): void {
     this.goto.delete(s);
   }
-  public entries() {
+  public entries(): MapIterator<[T, Self]> {
     return this.goto.entries();
   }
 
-  public empty() {
+  public empty(): boolean {
     return this.keyword == null;
   }
-  public add(k: K) {
+  public add(k: K): void {
     this.keyword = k;
   }
-  public value() {
+  public value(): K | null {
     return this.keyword;
   }
-  public merge(t?: Trie<T, K>) {
+  public merge(t?: Self): void {
     this.keyword ??= t?.keyword ?? null;
   }
 }
-export abstract class AbstractStreamAhoCorasick {
+
+export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, string, Node>> {
   protected readonly boundaryConfig?: BoundaryEntry;
-  protected root = new Trie<Sym, string>();
-  protected failure_link = new Map<Trie<Sym, string>, Trie<Sym, string>>();
+  protected root: Node;
+  protected failure_link = new Map<Node, Node>();
   protected readonly maxKeywordLength: number = 0;
   protected readonly maintainLength: number = 0;
-  protected readonly ringbufferCapacity: number = 0;
 
-  constructor(keywords: string[], boundary?: BoundaryEntry) {
+  constructor(keywords: string[], factory: (parent?: Node, depth?: 0 | 1) => Node, boundary?: BoundaryEntry) {
+    this.root = factory();
     this.boundaryConfig = boundary;
 
     // build goto
@@ -135,7 +142,7 @@ export abstract class AbstractStreamAhoCorasick {
         for (let i = 0; i < sequence.length; i++) {
           const ch = sequence[i];
           const width = typeof(ch) === 'string' ? 1 : 0
-          let next = current.go(ch) ?? (new Trie(current, width));
+          let next = current.go(ch) ?? factory(current, width);
           current.define(ch, next);
           current = next;
         }
@@ -147,7 +154,7 @@ export abstract class AbstractStreamAhoCorasick {
     // build failure
     {
       let top = 0;
-      const queue: [Trie<Sym, string>, Sym][] = [];
+      const queue: [Node, Sym][] = [];
       for (const [ch, next] of this.root.entries()) {
         queue.push([next, ch]);
       }
@@ -188,7 +195,7 @@ export abstract class AbstractStreamAhoCorasick {
     return 0;
   }
 
-  private maintainDeque(trie: Trie<Sym, string>, deque: Deque<Match>, index: number, offset: number): void {
+  private maintainDeque(trie: Node, deque: Deque<Match>, index: number, offset: number): void {
     if (trie.empty()) { return; }
 
     const keyword = trie.value()!;
@@ -231,7 +238,7 @@ export abstract class AbstractStreamAhoCorasick {
     return syms;
   }
 
-  protected *processTextSync<T, K>(state: Trie<Sym, string>, deque: Deque<Match>, chunk: string, prev: string | null, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Generator<T | K, [trie: Trie<Sym, string>, prev: string | null, confirmed_offset: number], unknown> {
+  protected *processTextSync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Generator<T | K, [trie: Node, prev: string | null, confirmed_offset: number], unknown> {
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
     const remain_offset = collector.length;
@@ -281,7 +288,7 @@ export abstract class AbstractStreamAhoCorasick {
     confirmed_offset = this.maintainAmortization(deque, collector, confirmed_index);
     return [state, prev, confirmed_offset];
   }
-  protected async *processTextAsync<T, K>(state: Trie<Sym, string>, deque: Deque<Match>, chunk: string, prev: string | null, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncGenerator<T | K, [trie: Trie<Sym, string>, prev: string | null, confirmed_offset: number], unknown> {
+  protected async *processTextAsync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncGenerator<T | K, [trie: Node, prev: string | null, confirmed_offset: number], unknown> {
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
     const remain_offset = collector.length;
@@ -315,7 +322,7 @@ export abstract class AbstractStreamAhoCorasick {
           {
             collector.skip(first.end - first.begin);
             const replaced = detect(first.keyword);
-            yield !(replaced instanceof Promise) ? replaced : await replaced;
+            yield !isPromiseLike<K>(replaced) ? replaced : await replaced;
           }
           output_begin = first.end;
 
@@ -334,7 +341,7 @@ export abstract class AbstractStreamAhoCorasick {
     return [state, prev, confirmed_offset];
   }
 
-  protected *cleanupTextSync<T, K>(state: Trie<Sym, string>, deque: Deque<Match>, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Iterable<T | K> {
+  protected *cleanupTextSync<T, K>(state: Node, deque: Deque<Match>, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Iterable<T | K> {
     const remain_offset = collector.length;
 
     if (this.boundaryConfig != null) {
@@ -366,10 +373,10 @@ export abstract class AbstractStreamAhoCorasick {
       yield* collect(output_begin, collector.length);
     }
   }
-  protected async *cleanupTextAsync<T, K>(state: Trie<Sym, string>, deque: Deque<Match>, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncIterable<T | K> {
+  protected async *cleanupTextAsync<T, K>(state: Node, deque: Deque<Match>, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncIterable<T | K> {
     const remain_offset = collector.length;
+
     if (this.boundaryConfig != null) {
-      this.maintainDeque(state, deque, 0, remain_offset);
       while (state !== this.root && !(state.can(CLOSE))) {
         state = this.failure_link.get(state)!;
       }
@@ -389,7 +396,7 @@ export abstract class AbstractStreamAhoCorasick {
       {
         collector.skip(first.end - first.begin);
         const replaced = detect(first.keyword);
-        yield !(replaced instanceof Promise) ? replaced : await replaced;
+        yield !isPromiseLike<K>(replaced) ? replaced : await replaced;
       }
       output_begin = first.end;
 
@@ -402,28 +409,36 @@ export abstract class AbstractStreamAhoCorasick {
   }
 }
 
-export abstract class AbstractStreamTentativeAhoCorasick extends AbstractStreamAhoCorasick {
-  protected tentative = new Map<Trie<Sym, string>, string>();
+export class Trie extends CRTPTrie<Sym, string, Trie> {}
 
+export abstract class AbstractStreamGeneralAhoCorasick extends AbstractStreamAhoCorasick<Trie> {
   constructor(keywords: string[], boundary?: BoundaryEntry) {
-    super(keywords, boundary);
+    super(keywords, (parent, depth) => new Trie(parent, depth), boundary);
+  }
+}
+
+export class TentativeTrie extends CRTPTrie<Sym, string, TentativeTrie> {
+  public tentative: string | null = null;
+}
+
+export abstract class AbstractStreamTentativeAhoCorasick extends AbstractStreamAhoCorasick<TentativeTrie> {
+  constructor(keywords: string[], boundary?: BoundaryEntry) {
+    super(keywords, (parent, depth) => new TentativeTrie(parent, depth), boundary);
 
     // build tentative
-    this.tentative.set(this.root, '')
+    this.root.tentative = '';
     for (const keyword of keywords) {
       for (const sequence of withSentinel(keyword, this.boundaryConfig)) {
         let current = this.root;
         for (let i = 0; i < sequence.length; i++) {
           const ch = sequence[i];
-          let next = current.go(ch) ?? (new Trie(current))
-          current.define(ch, next);
-          current = next;
+          current = current.go(ch)!;
         }
 
-        while (!this.tentative.has(current)) {
+        while (current.tentative == null) {
           // 本当は string に対する view で範囲を縮めて見れれば一番いいんだけど...
           // slice は Node, Deno, Bun で slice をとると CoW でそういう挙動をしてくれる
-          this.tentative.set(current, keyword.slice(0, current.depth));
+          current.tentative = keyword.slice(0, current.depth);
           // あと、これに O(N) かかったとしても、検索時の劣化がなければ別にいい
 
           current = current.parent!;

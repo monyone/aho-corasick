@@ -1,18 +1,18 @@
 import Deque from "../deque.mts";
 import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleReplacer } from "../stream.mts";
 import Collector from "../collector.mts";
-import { AbstractStreamAhoCorasick, type Match } from "../base.mts";
+import { AbstractStreamGeneralAhoCorasick, type Match } from "../base.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
-export type { BoundaryFunc, Match } from "../base.mts";
+export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match } from "../base.mts";
 
 export type ImperativeResult<T, K> = (T | K)[];
 export type ImperativeHandle<T, K> = {
   write(chunk: string): ImperativeResult<T, K>;
   end(): ImperativeResult<T, K>;
 };
-const ImperativeHandle = {
+export const ImperativeHandle = {
   from<T, K>(write: (chunk: string) => ImperativeResult<T, K>, end: () => ImperativeResult<T, K>): ImperativeHandle<T, K> {
     return { write, end };
   }
@@ -23,13 +23,13 @@ export type AsyncImperativeHandle<T, K> = {
   write(chunk: string): AsyncImperativeResult<T, K>;
   end(): AsyncImperativeResult<T, K>;
 };
-const AsyncImperativeHandle = {
+export const AsyncImperativeHandle = {
   from<T, K>(write: (chunk: string) => AsyncImperativeResult<T, K>, end: () => AsyncImperativeResult<T, K>): AsyncImperativeHandle<T, K> {
     return { write, end };
   }
 };
 
-export class AhoCorasick extends AbstractStreamAhoCorasick {
+export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public replaceSync(replacer: Replacer): ImperativeHandle<string, string> {
     const deque = new Deque<Match>();
     const collector = new Collector();

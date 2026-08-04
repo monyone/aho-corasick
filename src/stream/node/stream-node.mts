@@ -3,13 +3,13 @@ import { Transform } from "node:stream";
 import Deque from "../deque.mts";
 import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleReplacer } from "../stream.mts";
 import Collector from "../collector.mts";
-import { AbstractStreamAhoCorasick, type Match } from "../base.mts";
+import { AbstractStreamGeneralAhoCorasick, type Match } from "../base.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
-export type { BoundaryFunc, Match } from "../base.mts";
+export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match } from "../base.mts";
 
-export class AhoCorasick extends AbstractStreamAhoCorasick {
+export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public replaceStream(replacer: Replacer): Transform {
     const aho = this;
     const deque = new Deque<Match>();

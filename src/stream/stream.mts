@@ -1,14 +1,14 @@
-import { AbstractStreamAhoCorasick, Trie } from "./base.mts";
+import { AbstractStreamGeneralAhoCorasick, isPromiseLike } from "./base.mts";
 import Collector from "./collector.mts";
 import Deque from "./deque.mts";
 import type { Match } from "./base.mts";
 
 type ReplaceFunc = ((detect: string) => (string | false));
-type AsyncableReplaceFunc = ((detect: string) => Promise<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
+type AsyncableReplaceFunc = ((detect: string) => PromiseLike<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
 export type Replacer = Record<string, string> | Map<string, string> | ReplaceFunc;
 export type AsyncableReplacer = Replacer | AsyncableReplaceFunc;
 export { Boundary } from './base.mts';
-export type { BoundaryFunc, Match } from './base.mts';
+export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match } from './base.mts';
 
 export const handleReplacer = (detect: string, replacer: Replacer): string => {
   if (replacer instanceof Map) {
@@ -25,7 +25,7 @@ export const handleReplacer = (detect: string, replacer: Replacer): string => {
   }
 };
 
-export const handleAsyncableReplacer = (detect: string, replacer: AsyncableReplacer): string | Promise<string> => {
+export const handleAsyncableReplacer = (detect: string, replacer: AsyncableReplacer): string | PromiseLike<string> => {
   if (replacer instanceof Map) {
     return replacer.get(detect) ?? detect;
   } else if (typeof(replacer) === 'object') {
@@ -36,7 +36,7 @@ export const handleAsyncableReplacer = (detect: string, replacer: AsyncableRepla
     }
   } else {
     const replaced = replacer(detect);
-    if (replaced instanceof Promise) {
+    if (isPromiseLike<ReturnType<ReplaceFunc>>(replaced)) {
       return replaced.then((replaced) => {
         return replaced !== false ? replaced ?? detect: detect;
       });
@@ -72,7 +72,7 @@ export const AsyncableReplacer = {
   },
 } as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
 
-export class AhoCorasick extends AbstractStreamAhoCorasick {
+export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public *replaceSync(iterable: Iterable<string>, replacer: Replacer): Iterable<string> {
     const deque = new Deque<Match>();
     const collector = new Collector();
