@@ -141,6 +141,7 @@ export class Trie<T, K> {
   public readonly depth: number;
   private keyword: K | null = null;
   private goto: Map<T, Trie<T, K>> = new Map<T, Trie<T, K>>();
+  public failure: Trie<T, K> | null = null;
 
   public constructor(parent?: Trie<T, K>, depth: 0 | 1 = 1) {
     this.parent = parent ?? null;
@@ -180,7 +181,6 @@ export class Trie<T, K> {
 export class AhoCorasick {
   protected readonly boundaryConfig?: BoundaryEntry;
   protected root = new Trie<Sym, string>();
-  protected failure_link = new Map<Trie<Sym, string>, Trie<Sym, string>>();
 
   constructor(keywords: string[], boundary?: BoundaryEntry) {
     this.boundaryConfig = boundary;
@@ -215,15 +215,15 @@ export class AhoCorasick {
 
         // calc failure
         if (current.empty()) {
-          let failure = this.failure_link.get(parent) ?? null;
+          let failure = parent.failure;
           while (failure != null && !failure.can(ch)) {
-            failure = this.failure_link.get(failure) ?? null;
+            failure = failure.failure;
           }
           failure = failure?.go(ch) ?? this.root;
-          this.failure_link.set(current, failure);
+          current.failure = failure;
           current.merge(failure);
         } else {
-          this.failure_link.set(current, this.root);
+          current.failure = this.root;
         }
 
         for (const [ch, next] of current.entries()) {
@@ -251,7 +251,7 @@ export class AhoCorasick {
         const ch: Sym = sentinel ?? char;
 
         while (!state.can(ch) && state !== this.root) {
-          state = this.failure_link.get(state)!;
+          state = state.failure!;
         }
         state = state.go(ch) ?? this.root;
 
@@ -333,7 +333,7 @@ export class AhoCorasick {
 
         if (!state.can(ch)) { // use failure
           while (state !== this.root && !(state.can(ch))) {
-            state = this.failure_link.get(state)!;
+            state = state.failure!;
           }
         }
         state = state.go(ch) ?? this.root;
