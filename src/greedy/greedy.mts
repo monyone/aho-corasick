@@ -398,6 +398,7 @@ export class AhoCorasick {
     return this.tokenizeInText(text, normal, keyword).join('');
   }
 
+  /** @deprecated */
   public async replaceAsyncInText(text: string, replacer: AsyncableReplacer): Promise<string> {
     const normal = (chunk: string) => chunk;
     const keyword = (detect: string) => handleAsyncableReplacer(detect, replacer);
