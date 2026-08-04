@@ -87,6 +87,7 @@ export class CRTPTrie<T, K, Self extends CRTPTrie<T, K, Self>> {
   public readonly depth: number;
   private keyword: K | null = null;
   private goto: Map<T, Self> = new Map<T, Self>();
+  public failure: Self | null = null;
 
   public constructor(parent?: Self, depth: 0 | 1 = 1) {
     this.parent = parent ?? null;
@@ -126,7 +127,6 @@ export class CRTPTrie<T, K, Self extends CRTPTrie<T, K, Self>> {
 export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, string, Node>> {
   protected readonly boundaryConfig?: BoundaryEntry;
   protected root: Node;
-  protected failure_link = new Map<Node, Node>();
   protected readonly maxKeywordLength: number = 0;
   protected readonly maintainLength: number = 0;
 
@@ -166,15 +166,16 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
 
         // calc failure
         if (current.empty()) {
-          let failure = this.failure_link.get(parent) ?? null;
+          let failure = parent.failure;
           while (failure != null && !failure.can(ch)) {
-            failure = this.failure_link.get(failure) ?? null;
+            failure = failure.failure;
           }
           failure = failure?.go(ch) ?? this.root;
-          this.failure_link.set(current, failure);
+
+          current.failure = failure;
           current.merge(failure);
         } else {
-          this.failure_link.set(current, this.root);
+          current.failure = this.root;
         }
 
         for (const [ch, next] of current.entries()) {
@@ -258,7 +259,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       if (!state.can(ch)) { // use failure
         const old_depth = state.depth;
         while (state !== this.root && !(state.can(ch))) {
-          state = this.failure_link.get(state)!;
+          state = state.failure!;
         }
 
         const new_depth = state.depth;
@@ -308,7 +309,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       if (!state.can(ch)) { // use failure
         const old_depth = state.depth;
         while (state !== this.root && !(state.can(ch))) {
-          state = this.failure_link.get(state)!;
+          state = state.failure!;
         }
         const new_depth = state.depth;
         confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : width);
@@ -346,7 +347,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
 
     if (this.boundaryConfig != null) {
       while (state !== this.root && !(state.can(CLOSE))) {
-        state = this.failure_link.get(state)!;
+        state = state.failure!;
       }
       state = state.go(CLOSE) ?? this.root;
     }
@@ -378,7 +379,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
 
     if (this.boundaryConfig != null) {
       while (state !== this.root && !(state.can(CLOSE))) {
-        state = this.failure_link.get(state)!;
+        state = state.failure!;
       }
       state = state.go(CLOSE) ?? this.root;
     }
