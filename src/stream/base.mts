@@ -9,6 +9,15 @@ export type DetectFunc<K> = (keyword: string) => K;
 export type AsyncableDetectFunc<K> = (keyword: string) => K | PromiseLike<K>;
 
 export type BoundaryEntry = { target: BoundaryTarget, boundary: BoundaryFunc };
+const isAsciiChars = (
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+  "abcdefghijklmnopqrstuvwxyz" +
+  "0123456789" +
+  "_&#+.-"
+);
+const isAsciiCharSet = new Set(isAsciiChars.split(''));
+const isAsciiChar = (ch: string) => isAsciiCharSet.has(ch);
+
 export const Boundary = {
   WhiteSpace: (): BoundaryEntry => {
     const isBoundary = (ch: string) => /\s/.test(ch);
@@ -22,14 +31,13 @@ export const Boundary = {
     return { target, boundary };
   },
   AsciiTerm: (): BoundaryEntry => {
-    const isAsciiChar = (ch: string) => /[A-Za-z0-9_&#+.-]/.test(ch);
-    const target = (t: string) => /^[A-Za-z0-9_&#+.-](?:[A-Za-z0-9_&#+.\s-]*[A-Za-z0-9_&#+.-])?$/.test(t);
+    const cls = isAsciiChars.replace(/[\\\]^-]/g, "\\$&");
+    const pattern = new RegExp(`^[${cls}](?:[${cls}\\s]*[${cls}])?$`);
+    const target = (t: string) => pattern.test(t);
     const boundary = (left: string, right: string) => !(isAsciiChar(left) && isAsciiChar(right));
     return { target, boundary };
   },
   AsciiEdge: (): BoundaryEntry => {
-    const isAsciiChar = (ch: string) => /[A-Za-z0-9_&#+.-]/.test(ch);
-    // if neither edge char is ascii, the boundary holds against any neighbor, so sentinels are omittable
     const target = (t: string) => t.length === 0 ? false : isAsciiChar(t[0]) || isAsciiChar(t[t.length - 1]);
     const boundary = (left: string, right: string) => !(isAsciiChar(left) && isAsciiChar(right));
     return { target, boundary };
