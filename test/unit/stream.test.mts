@@ -631,9 +631,9 @@ describe('Boundary.AsciiTerm', () => {
     expect(replace(['cat'], ['_cat_ cat'], 'DOG')).toBe('_cat_ DOG');
   });
 
-  test('technical-term symbols (&, +, #, ., -) are word characters and block the match', () => {
-    // '.' '&' '+' '#' '-' adjacent to cat mean it is part of a larger term
-    expect(replace(['cat'], ['cat.js cat&dog cat+ #cat co-cat cat'], 'DOG')).toBe('cat.js cat&dog cat+ #cat co-cat DOG');
+  test('technical-term symbols (&, +, #, -) are word characters and block the match', () => {
+    // '&' '+' '#' '-' adjacent to cat mean it is part of a larger term; '.' is a boundary
+    expect(replace(['cat'], ['cat.js cat&dog cat+ #cat co-cat cat'], 'DOG')).toBe('DOG.js cat&dog cat+ #cat co-cat DOG');
   });
 
   test('a keyword that is itself a technical term matches on symbol boundaries', () => {
@@ -642,8 +642,8 @@ describe('Boundary.AsciiTerm', () => {
   });
 
   test('a symbol-containing keyword is matched as a whole term', () => {
-    // ".net" delimited by spaces is a whole term; "a.net" is part of a larger term
-    expect(replace(['.net'], ['use .net and a.net'], 'X')).toBe('use X and a.net');
+    // "co/jp" delimited by spaces is a whole term ('/' is a word char); "x/co/jp" is part of a larger term
+    expect(replace(['co/jp'], ['use co/jp and x/co/jp'], 'X')).toBe('use X and x/co/jp');
   });
 
   test('non-ASCII keywords are never subject to the whole-term check', () => {

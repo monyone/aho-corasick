@@ -73,7 +73,7 @@ const isAsciiChars = (
   "ABCDEFGHIJKLMNOPQRSTUVWXYZ" +
   "abcdefghijklmnopqrstuvwxyz" +
   "0123456789" +
-  "_&#+.-"
+  "_&#+-/"
 );
 const isAsciiCharSet = new Set(isAsciiChars.split(''));
 const isAsciiChar = (ch: string) => isAsciiCharSet.has(ch);
