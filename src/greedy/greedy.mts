@@ -101,8 +101,8 @@ const CLOSE: unique symbol = Symbol();
 type Sentinel = typeof OPEN | typeof CLOSE;
 type Sym = string | Sentinel;
 
-const withSentinel = (keyword: string, entry?: BoundaryEntry): Sym[][] => {
-  if (entry == null) { return [keyword.split('')]; }
+const withSentinel = (keyword: string, entry?: BoundaryEntry): (Sym[] | string)[] => {
+  if (entry == null) { return [keyword]; }
   if (keyword === '') {
     if (entry.target(keyword)) {
       return [[OPEN, CLOSE]];
@@ -233,36 +233,45 @@ export class AhoCorasick {
     }
   }
 
-  private symbolize(text: string): Sym[] {
-    if (this.boundaryConfig == null) { return text.split(''); }
-    const syms: Sym[] = [];
-
-    for (let i = 0; i < text.length; i++) {
-      if (i === 0) {
-        syms.push(OPEN);
-      } else if (this.boundaryConfig.boundary(text[i - 1], text[i - 0])) {
-        syms.push(CLOSE, OPEN);
-      }
-      syms.push(text[i]);
-    }
-    // テキスト終端も境界: 末尾で終わる target キーワードを完成させる
-    if (text.length > 0) { syms.push(CLOSE); }
-    return syms;
-  }
-
   public hasKeywordInText(text: string): boolean {
     if (!this.root.empty()) { return true; }
 
     let state = this.root;
-    const symbols = this.symbolize(text);
-    for (let i = 0; i < symbols.length; i++) {
-      const ch = symbols[i];
-      while (!state.can(ch) && state !== this.root) {
-        state = this.failure_link.get(state)!;
+    let prev: string | null = null;
+    for (let i = 0; i <= text.length; i++) {
+      const char = text[i];
+      let sentinel: Sentinel | null = null;
+      if (this.boundaryConfig != null) {
+        if (prev == null) { sentinel = OPEN; }
+        else if (this.boundaryConfig.boundary(prev, char)) { sentinel = CLOSE; }
       }
-      state = state.go(ch) ?? this.root;
 
-      if (!state.empty()) { return true; }
+      LOOP:
+      while (true) {
+        const ch: Sym = sentinel ?? char;
+
+        while (!state.can(ch) && state !== this.root) {
+          state = this.failure_link.get(state)!;
+        }
+        state = state.go(ch) ?? this.root;
+
+        if (!state.empty()) { return true; }
+
+        if (i === text.length - 1 && sentinel == null) {
+          sentinel = CLOSE;
+          i += 1;
+          continue LOOP;
+        } else if (i >= text.length) {
+          break LOOP;
+        }
+        switch (sentinel) {
+          case CLOSE: sentinel = OPEN; break;
+          case OPEN: sentinel = null; break;
+          case null: break LOOP;
+        }
+      }
+
+      prev = char;
     }
 
     return false;
@@ -299,44 +308,65 @@ export class AhoCorasick {
     }
 
     let state = this.root;
-    let index = 0;
-    const symbols = this.symbolize(text);
-    for (let i = 0; i < symbols.length; i++) {
-      const ch = symbols[i];
-      const width = typeof(ch) === 'string' ? 1 : 0;
-
-      // "" (empty) がありうるので、そのケースを対応
-      if (!this.root.empty() && width > 0) {
-        const keyword = this.root.value()!;
-        const length = keyword.length;
-        const end = index;
-        const begin = end - length;
-        push(begin, end, keyword);
+    let prev: string | null = null;
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      let sentinel: Sentinel | null = null;
+      if (this.boundaryConfig != null) {
+        if (prev == null) { sentinel = OPEN; }
+        else if (this.boundaryConfig.boundary(prev, char)) { sentinel = CLOSE; }
       }
 
-      if (!state.can(ch)) { // use failure
-        while (state !== this.root && !(state.can(ch))) {
-          state = this.failure_link.get(state)!;
+      LOOP:
+      while (true) {
+        const ch: Sym = sentinel ?? char;
+        const width = typeof(ch) === 'string' ? 1 : 0;
+
+        // "" (empty) がありうるので、そのケースを対応
+        if (!this.root.empty()) {
+          const keyword = this.root.value()!;
+          const length = keyword.length;
+          const end = i;
+          const begin = end - length;
+          push(begin, end, keyword);
+        }
+
+        if (!state.can(ch)) { // use failure
+          while (state !== this.root && !(state.can(ch))) {
+            state = this.failure_link.get(state)!;
+          }
+        }
+        state = state.go(ch) ?? this.root;
+
+        if (!state.empty()) {
+          const keyword = state.value()!;
+          const length = keyword.length;
+          const end = i + width;
+          const begin = end - length;
+          push(begin, end, keyword);
+        }
+
+        if (i === text.length - 1 && sentinel == null) {
+          sentinel = CLOSE;
+          i += 1;
+          continue LOOP;
+        } else if (i >= text.length) {
+          break LOOP;
+        }
+        switch (sentinel) {
+          case CLOSE: sentinel = OPEN; break;
+          case OPEN: sentinel = null; break;
+          case null: break LOOP;
         }
       }
-      state = state.go(ch) ?? this.root;
-
-      if (!state.empty()) {
-        const keyword = state.value()!;
-        const length = keyword.length;
-        const end = index + width;
-        const begin = end - length;
-        push(begin, end, keyword);
-      }
-
-      index += width;
+      prev = char;
     }
 
     // "" (empty) がありうるので、そのケースを対応
     if (!this.root.empty()) {
       const keyword = this.root.value()!;
       const length = keyword.length;
-      const end = index;
+      const end = text.length;
       const begin = end - length;
       push(begin, end, keyword);
     }

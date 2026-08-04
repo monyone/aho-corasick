@@ -184,14 +184,15 @@ class DoubleArray {
     }
     this.code = new Map<Sym, number>(Array.from(set.values()).map((v, i) => [v, i + 1]));
     const unique = new Set<string>();
-    const total = new Set<Sym[]>();
+    const total: Sym[][] = [];
     for (const keyword of keywords) {
+      if (unique.has(keyword)) { continue; }
       unique.add(keyword);
       for (const sequence of withSentinel(keyword, entry)) {
-        total.add(sequence);
+        total.push(sequence);
       }
     }
-    const words = Array.from(total.values()).map((syms) => syms.map((sym) => this.code.get(sym)!));
+    const words = total.map((syms) => syms.map((sym) => this.code.get(sym)!));
 
     // construct Trie
     const root = new Trie();
@@ -338,34 +339,43 @@ export class AhoCorasick {
     this.boundaryConfig = boundary;
   }
 
-  private symbolize(text: string): Sym[] {
-    if (this.boundaryConfig == null) { return text.split(''); }
-    const syms: Sym[] = [];
-
-    for (let i = 0; i < text.length; i++) {
-      if (i === 0) {
-        syms.push(OPEN);
-      } else if (this.boundaryConfig.boundary(text[i - 1], text[i - 0])) {
-        syms.push(CLOSE, OPEN);
-      }
-      syms.push(text[i]);
-    }
-    // テキスト終端も境界: 末尾で終わる target キーワードを完成させる
-    if (text.length > 0) { syms.push(CLOSE); }
-    return syms;
-  }
-
   public hasKeywordInText(text: string): boolean {
     const root = 0;
     if (this.trie.query(root) != null) { return true; }
 
     let node = root;
-    const symbols = this.symbolize(text);
-    for (let i = 0; i < symbols.length; i++) {
-      node = this.trie.go(node, symbols[i]);
+    let prev: string | null = null;
+    for (let i = 0; i <= text.length; i++) {
+      const char = text[i];
+      let sentinel: Sentinel | null = null;
+      if (this.boundaryConfig != null) {
+        if (prev == null) { sentinel = OPEN; }
+        else if (this.boundaryConfig.boundary(prev, char)) { sentinel = CLOSE; }
+      }
 
-      const keyword = this.trie.query(node);
-      if (keyword != null) { return true; }
+      LOOP:
+      while (true) {
+        const ch: Sym = sentinel ?? char;
+        node = this.trie.go(node, ch);
+
+        const keyword = this.trie.query(node);
+        if (keyword != null) { return true; }
+
+        if (i === text.length - 1 && sentinel == null) {
+          sentinel = CLOSE;
+          i += 1;
+          continue LOOP;
+        } else if (i >= text.length) {
+          break LOOP;
+        }
+        switch (sentinel) {
+          case CLOSE: sentinel = OPEN; break;
+          case OPEN: sentinel = null; break;
+          case null: break LOOP;
+        }
+      }
+
+      prev = char;
     }
 
     return false;
@@ -405,45 +415,57 @@ export class AhoCorasick {
     }
 
     let node = root;
-    let index = 0;
-    const symbols = this.symbolize(text);
-    for (let i = 0; i < symbols.length; i++) {
-      const ch = symbols[i];
-      const width = typeof(ch) === 'string' ? 1 : 0;
+    let prev: string | null = null;
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      let sentinel: Sentinel | null = null;
+      if (this.boundaryConfig != null) {
+        if (prev == null) { sentinel = OPEN; }
+        else if (this.boundaryConfig.boundary(prev, char)) { sentinel = CLOSE; }
+      }
 
-      // "" (empty) がありうるので、そのケースを対応
-      {
-        const keyword = this.trie.query(root);
-        if (keyword != null && width > 0) {
-          const length = keyword.length;
-          const end = index;
-          const begin = end - length;
-          push(begin, end, keyword);
+      LOOP:
+      while (true) {
+        const ch: Sym = sentinel ?? char;
+        const width = typeof(ch) === 'string' ? 1 : 0;
+
+        // "" (empty) がありうるので、そのケースを対応
+        {
+          const keyword = this.trie.query(root);
+          if (keyword != null && width > 0) {
+            const length = keyword.length;
+            const end = i;
+            const begin = end - length;
+            push(begin, end, keyword);
+          }
+        }
+
+        node = this.trie.go(node, ch);
+
+        {
+          const keyword = this.trie.query(node);
+          if (keyword != null) {
+            const length = keyword.length;
+            const end = i + width;
+            const begin = end - length;
+            push(begin, end, keyword);
+          }
+        }
+
+        if (i === text.length - 1 && sentinel == null) {
+          sentinel = CLOSE;
+          i += 1;
+          continue LOOP;
+        } else if (i >= text.length) {
+          break LOOP;
+        }
+        switch (sentinel) {
+          case CLOSE: sentinel = OPEN; break;
+          case OPEN: sentinel = null; break;
+          case null: break LOOP;
         }
       }
-
-      node = this.trie.go(node, ch);
-
-      const keyword = this.trie.query(node);
-      if (keyword != null) {
-        const length = keyword.length;
-        const end = index + width;
-        const begin = end - length;
-        push(begin, end, keyword);
-      }
-
-      index += width;
-    }
-
-    // "" (empty) がありうるので、そのケースを対応
-    {
-      const keyword = this.trie.query(root);
-      if (keyword != null) {
-        const length = keyword.length;
-        const end = index;
-        const begin = end - length;
-        push(begin, end, keyword);
-      }
+      prev = char;
     }
 
     return candidates;
