@@ -251,16 +251,12 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
 
       LOOP:
       while (true) {
-        const ch: Sym = stop ? STOP_DUMMY : sentinel ?? char;
-        const width = ch === STOP_DUMMY || typeof(ch) === 'string' ? 1 : 0;
+        const ch: Sym = sentinel ?? (stop ? STOP_DUMMY : char);
+        const width = (ch === STOP_DUMMY || typeof(ch) === 'string') ? 1 : 0;
 
-        if (!stop || (stop && prev == null)) { // stop の変化時には prev を null とすること
-          this.maintainDeque(state, deque, index, remain_offset);
-          // 空キーワード の場合は追加対応
-          this.maintainDeque(this.root, deque, index, remain_offset);
-        } else {
-          state = this.root;
-        }
+        this.maintainDeque(state, deque, index, remain_offset);
+        // 空キーワード の場合は追加対応
+        this.maintainDeque(this.root, deque, index, remain_offset);
 
         if (!state.can(ch)) { // use failure
           const old_depth = state.depth;
@@ -291,7 +287,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
         switch (sentinel) {
           case CLOSE: sentinel = OPEN; break;
           case OPEN: sentinel = null; break;
-          case null: break LOOP;
+          default: break LOOP;
         }
       }
       prev = char;
@@ -321,16 +317,12 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
 
       LOOP:
       while (true) {
-        const ch: Sym = stop ? STOP_DUMMY : sentinel ?? char;
-        const width = ch === STOP_DUMMY || typeof(ch) === 'string' ? 1 : 0;
+        const ch: Sym = sentinel ?? (stop ? STOP_DUMMY : char);
+        const width = (ch === STOP_DUMMY || typeof(ch) === 'string') ? 1 : 0;
 
-        if (!stop || (stop && prev == null)) {
-          this.maintainDeque(state, deque, index, remain_offset);
-          // 空キーワード の場合は追加対応
-          this.maintainDeque(this.root, deque, index, remain_offset);
-        } else {
-          state = this.root;
-        }
+        this.maintainDeque(state, deque, index, remain_offset);
+        // 空キーワード の場合は追加対応
+        this.maintainDeque(this.root, deque, index, remain_offset);
 
         if (!state.can(ch)) { // use failure
           const old_depth = state.depth;
@@ -364,7 +356,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
         switch (sentinel) {
           case CLOSE: sentinel = OPEN; break;
           case OPEN: sentinel = null; break;
-          case null: break LOOP;
+          default: break LOOP;
         }
       }
       prev = char;
