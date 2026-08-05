@@ -737,6 +737,15 @@ describe('Boundary.By', () => {
     // '(' and ')' are not separators, so "(cat)" is not whole; standalone "cat" is
     expect(result).toBe('(cat) X');
   });
+
+  test('g flag on the separator does not corrupt the boundary via lastIndex', () => {
+    // g/y フラグ付き RegExp の test() は lastIndex を進めるステートフルな挙動になる。
+    // By() 内でフラグを落として複製していないと、境界判定が呼び出し順で崩れて誤マッチする。
+    const aho = new AhoCorasick(['cat'], Boundary.By(/\//g));
+    const result = Array.from(aho.replaceSync(['/cat/ a cat'], () => 'X')).join('');
+    // フラグなし版 (/\//) と完全に同じ結果になること
+    expect(result).toBe('/X/ a cat');
+  });
 });
 
 describe('empty keyword with boundary', () => {

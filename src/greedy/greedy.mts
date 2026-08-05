@@ -86,8 +86,9 @@ export const Boundary = {
     return { target, boundary };
   },
   By: (separator: RegExp): BoundaryEntry => {
+    const matcher = new RegExp(separator.source, separator.flags.replace(/[gy]/g, ''));
     const target = (t: string) => t.length > 0;
-    const boundary = (left: string, right: string) => separator.test(left) || separator.test(right);
+    const boundary = (left: string, right: string) => matcher.test(left) || matcher.test(right);
     return { target, boundary };
   },
   AsciiTerm: (): BoundaryEntry => {
