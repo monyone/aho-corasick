@@ -54,6 +54,13 @@ export const STOP_END: unique symbol = Symbol();
 export type Stop = typeof STOP_BEGIN | typeof STOP_END;
 export type Sym = string | Sentinel | typeof STOP_DUMMY;
 
+export const STOP_TYPE = {
+  NONE: 'NONE',
+  BEGIN: 'BEGIN',
+  INPROGRESS: 'INPROGRESS',
+} as const;
+export type STOP_TYPE = (typeof STOP_TYPE)[keyof typeof STOP_TYPE];
+
 const withSentinel = (keyword: string, entry?: BoundaryEntry): (Sym[] | string)[] => {
   if (entry == null) {return [keyword]; }
   if (keyword === '') {
@@ -234,7 +241,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     }
   }
 
-  protected *processTextSync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: boolean, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Generator<T | K, [trie: Node, prev: string | null, confirmed_offset: number], unknown> {
+  protected *processTextSync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Generator<T | K, [trie: Node, prev: string | null, confirmed_offset: number], unknown> {
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
     const remain_offset = collector.length;
@@ -251,12 +258,16 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
 
       LOOP:
       while (true) {
-        const ch: Sym = sentinel ?? (stop ? STOP_DUMMY : char);
+        const ch: Sym = sentinel ?? (stop !== STOP_TYPE.NONE ? STOP_DUMMY : char);
         const width = (ch === STOP_DUMMY || typeof(ch) === 'string') ? 1 : 0;
 
-        this.maintainDeque(state, deque, index, remain_offset);
-        // 空キーワード の場合は追加対応
-        this.maintainDeque(this.root, deque, index, remain_offset);
+        // stop 継続中 or stop 始まりの次文字 から stop
+        // この時は deque を操作すると空文字を検出してしまうので入れない
+        if (stop === STOP_TYPE.NONE || (stop === STOP_TYPE.BEGIN && index === 0)) {
+          this.maintainDeque(state, deque, index, remain_offset);
+          // 空キーワード の場合は追加対応
+          this.maintainDeque(this.root, deque, index, remain_offset);
+        }
 
         if (!state.can(ch)) { // use failure
           const old_depth = state.depth;
@@ -283,7 +294,6 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
         state = state.go(ch) ?? this.root;
         index += width;
 
-        if (stop) { break LOOP; }
         switch (sentinel) {
           case CLOSE: sentinel = OPEN; break;
           case OPEN: sentinel = null; break;
@@ -300,7 +310,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     confirmed_offset = this.maintainAmortization(deque, collector, confirmed_index);
     return [state, prev, confirmed_offset];
   }
-  protected async *processTextAsync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: boolean, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncGenerator<T | K, [trie: Node, prev: string | null, confirmed_offset: number], unknown> {
+  protected async *processTextAsync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncGenerator<T | K, [trie: Node, prev: string | null, confirmed_offset: number], unknown> {
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
     const remain_offset = collector.length;
@@ -317,12 +327,16 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
 
       LOOP:
       while (true) {
-        const ch: Sym = sentinel ?? (stop ? STOP_DUMMY : char);
+        const ch: Sym = sentinel ?? (stop !== STOP_TYPE.NONE ? STOP_DUMMY : char);
         const width = (ch === STOP_DUMMY || typeof(ch) === 'string') ? 1 : 0;
 
-        this.maintainDeque(state, deque, index, remain_offset);
-        // 空キーワード の場合は追加対応
-        this.maintainDeque(this.root, deque, index, remain_offset);
+        // stop 継続中 or stop 始まりの次文字 から stop
+        // この時は deque を操作すると空文字を検出してしまうので入れない
+        if (stop === STOP_TYPE.NONE || (stop === STOP_TYPE.BEGIN && index === 0)) {
+          this.maintainDeque(state, deque, index, remain_offset);
+          // 空キーワード の場合は追加対応
+          this.maintainDeque(this.root, deque, index, remain_offset);
+        }
 
         if (!state.can(ch)) { // use failure
           const old_depth = state.depth;
@@ -352,7 +366,6 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
         state = state.go(ch) ?? this.root;
         index += width;
 
-        if (stop) { break LOOP; }
         switch (sentinel) {
           case CLOSE: sentinel = OPEN; break;
           case OPEN: sentinel = null; break;
@@ -370,8 +383,12 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     return [state, prev, confirmed_offset];
   }
 
-  protected *cleanupTextSync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Iterable<T | K> {
+  protected *cleanupTextSync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Iterable<T | K> {
     const remain_offset = collector.length;
+    const maintainDequeIfNeeded = (state: Node) => {
+      if (stop === STOP_TYPE.INPROGRESS) { return; }
+      this.maintainDeque(state, deque, 0, remain_offset);
+    }
 
     if (this.boundaryConfig != null) {
       if (prev == null) {
@@ -379,7 +396,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
           state = state.failure!;
         }
         state = state.go(OPEN) ?? this.root;
-        this.maintainDeque(state, deque, 0, remain_offset);
+        maintainDequeIfNeeded(state);
       }
 
       while (state !== this.root && !(state.can(CLOSE))) {
@@ -387,9 +404,9 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       }
       state = state.go(CLOSE) ?? this.root;
     }
-    this.maintainDeque(state, deque, 0, remain_offset);
+    maintainDequeIfNeeded(state);
     // 空キーワード の場合は追加対応
-    this.maintainDeque(this.root, deque, 0, remain_offset);
+    maintainDequeIfNeeded(this.root);
 
     let output_begin = confirmed_index;
     while (!deque.empty()) {
@@ -410,8 +427,12 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       yield* collect(output_begin, collector.length);
     }
   }
-  protected async *cleanupTextAsync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncIterable<T | K> {
+  protected async *cleanupTextAsync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncIterable<T | K> {
     const remain_offset = collector.length;
+    const maintainDequeIfNeeded = (state: Node) => {
+      if (stop === STOP_TYPE.INPROGRESS) { return; }
+      this.maintainDeque(state, deque, 0, remain_offset);
+    }
 
     if (this.boundaryConfig != null) {
       if (prev == null) {
@@ -419,7 +440,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
           state = state.failure!;
         }
         state = state.go(OPEN) ?? this.root;
-        this.maintainDeque(state, deque, 0, remain_offset);
+        maintainDequeIfNeeded(state);
       }
 
       while (state !== this.root && !(state.can(CLOSE))) {
@@ -427,9 +448,9 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       }
       state = state.go(CLOSE) ?? this.root;
     }
-    this.maintainDeque(state, deque, 0, remain_offset);
+    maintainDequeIfNeeded(state)
     // 空キーワード の場合は追加対応
-    this.maintainDeque(this.root, deque, 0, remain_offset);
+    maintainDequeIfNeeded(this.root);
 
     let output_begin = confirmed_index;
     while (!deque.empty()) {

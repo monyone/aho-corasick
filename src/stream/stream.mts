@@ -1,7 +1,7 @@
 import { AbstractStreamGeneralAhoCorasick, isPromiseLike } from "./base.mts";
 import Collector from "./collector.mts";
 import Deque from "./deque.mts";
-import type { Match } from "./base.mts";
+import { STOP_TYPE, type Match } from "./base.mts";
 
 type ReplaceFunc = ((detect: string) => (string | false));
 type AsyncableReplaceFunc = ((detect: string) => PromiseLike<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
@@ -81,13 +81,13 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: boolean = false;
+    let stop: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     for (const text of iterable) {
       [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
-    yield* this.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, stop, confirmed_offset, collector, collect, detect);
   }
 
   public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer): AsyncIterable<string> {
@@ -98,13 +98,13 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: boolean = false;
+    let stop: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
       [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
-    yield* this.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, stop, confirmed_offset, collector, collect, detect);
   }
 
   public *tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K): Iterable<T | K> {
@@ -115,13 +115,13 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: boolean = false;
+    let stop: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     for (const text of iterable) {
       [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
-    yield* this.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, stop, confirmed_offset, collector, collect, detect);
   }
 
   public async *tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K): AsyncIterable<T | K> {
@@ -132,13 +132,13 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: boolean = false;
+    let stop: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
       [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
-    yield* this.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, stop, confirmed_offset, collector, collect, detect);
   }
 }
 

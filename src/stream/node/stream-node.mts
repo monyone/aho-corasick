@@ -3,7 +3,7 @@ import { Transform } from "node:stream";
 import Deque from "../deque.mts";
 import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleReplacer } from "../stream.mts";
 import Collector from "../collector.mts";
-import { AbstractStreamGeneralAhoCorasick, type Match } from "../base.mts";
+import { AbstractStreamGeneralAhoCorasick, STOP_TYPE, type Match } from "../base.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
@@ -19,7 +19,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: boolean = false;
+    let stop: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     return new Transform({
@@ -40,7 +40,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
         cb();
       },
       flush(cb) {
-        for (const chunk of aho.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect)) {
+        for (const chunk of aho.cleanupTextSync(state, deque, prev, stop, confirmed_offset, collector, collect, detect)) {
           this.push(chunk);
         }
         cb();
@@ -57,7 +57,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: boolean = false;
+    let stop: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     return new Transform({
@@ -78,7 +78,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
         cb();
       },
       async flush(cb) {
-        for await (const chunk of aho.cleanupTextAsync(state, deque, prev, confirmed_offset, collector, collect, detect)) {
+        for await (const chunk of aho.cleanupTextAsync(state, deque, prev, stop, confirmed_offset, collector, collect, detect)) {
           this.push(chunk);
         }
         cb();
