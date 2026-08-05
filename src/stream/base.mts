@@ -252,7 +252,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       LOOP:
       while (true) {
         const ch: Sym = stop ? STOP_DUMMY : sentinel ?? char;
-        const width = typeof(ch) === 'string' ? 1 : 0;
+        const width = ch === STOP_DUMMY || typeof(ch) === 'string' ? 1 : 0;
 
         if (!stop || (stop && prev == null)) { // stop の変化時には prev を null とすること
           this.maintainDeque(state, deque, index, remain_offset);
@@ -322,7 +322,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       LOOP:
       while (true) {
         const ch: Sym = stop ? STOP_DUMMY : sentinel ?? char;
-        const width = typeof(ch) === 'string' ? 1 : 0;
+        const width = ch === STOP_DUMMY || typeof(ch) === 'string' ? 1 : 0;
 
         if (!stop || (stop && prev == null)) {
           this.maintainDeque(state, deque, index, remain_offset);
