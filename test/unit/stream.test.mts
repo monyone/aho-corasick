@@ -739,6 +739,52 @@ describe('Boundary.By', () => {
   });
 });
 
+describe('empty keyword with boundary', () => {
+  // 空キーワード "" は「単語の縁（境界に挟まれた空位置）」でのみマッチする。
+  // 非境界位置（'ab' の a→b 間など）ではマッチしない。全 Boundary モードで挙動が一致すること。
+  const boundaries: [name: string, entry: BoundaryEntry][] = [
+    ['WhiteSpace', Boundary.WhiteSpace()],
+    ['AsciiTerm', Boundary.AsciiTerm()],
+    ['AsciiEdge', Boundary.AsciiEdge()],
+    ['By(/\\s/)', Boundary.By(/\s/)],
+  ];
+
+  for (const [name, entry] of boundaries) {
+    const replace = (keywords: string[], chunks: string[], replacement: string) =>
+      Array.from(new AhoCorasick(keywords, entry).replaceSync(chunks, () => replacement)).join('');
+
+    describe(name, () => {
+      test('matches only at word edges, not inside a word', () => {
+        // "ab" is a single word -> empty matches at its leading/trailing edge only
+        expect(replace([''], ['ab'], '#')).toBe('#ab#');
+      });
+
+      test('matches at every word edge', () => {
+        // "a b" -> two words; empty matches at each edge, whitespace untouched
+        expect(replace([''], ['a b'], '#')).toBe('#a# #b#');
+      });
+
+      test('empty text yields a single empty match', () => {
+        expect(replace([''], [''], '#')).toBe('#');
+      });
+
+      test('no chunks at all still yields a single empty match', () => {
+        expect(replace([''], [], '#')).toBe('#');
+      });
+
+      test('empty keyword alongside a normal keyword', () => {
+        // "a" is a standalone word here -> replaced; empty matches at each word edge.
+        // (in "a b" both "a" and "b" are single-char words; only "a" is a keyword)
+        expect(replace(['', 'a'], ['a b'], '#')).toBe('## #b#');
+      });
+
+      test('empty match survives chunk boundaries', () => {
+        expect(replace([''], ['a', 'b'], '#')).toBe('#ab#');
+      });
+    });
+  }
+});
+
 describe('replaceStream with boundary', () => {
   const chunks = ['s', 'cat', ' ca', 't'];
   const expected = 'scat [cat]';

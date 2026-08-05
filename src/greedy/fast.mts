@@ -81,19 +81,19 @@ const isAsciiChar = (ch: string) => isAsciiCharSet.has(ch);
 export const Boundary = {
   WhiteSpace: (): BoundaryEntry => {
     const isBoundary = (ch: string) => /\s/.test(ch);
-    const target = () => true;
+    const target = (t: string) => t.length > 0;
     const boundary = (left: string, right: string) => isBoundary(left) || isBoundary(right);
     return { target, boundary };
   },
   By: (separator: RegExp): BoundaryEntry => {
-    const target = () => true;
+    const target = (t: string) => t.length > 0;
     const boundary = (left: string, right: string) => separator.test(left) || separator.test(right);
     return { target, boundary };
   },
   AsciiTerm: (): BoundaryEntry => {
     const cls = isAsciiChars.replace(/[\\\]^-]/g, "\\$&");
     const pattern = new RegExp(`^[${cls}](?:[${cls}\\s]*[${cls}])?$`);
-    const target = (t: string) => pattern.test(t);
+    const target = (t: string) => t.length === 0 ? false : pattern.test(t);
     const boundary = (left: string, right: string) => !(isAsciiChar(left) && isAsciiChar(right));
     return { target, boundary };
   },
@@ -119,7 +119,6 @@ const withSentinel = (keyword: string, entry?: BoundaryEntry): Sym[][] => {
         [OPEN, CLOSE],
         [CLOSE],
         [OPEN],
-        [],
       ];
     }
   }
@@ -142,7 +141,7 @@ const withSentinel = (keyword: string, entry?: BoundaryEntry): Sym[][] => {
       [... syms],
     ];
   }
-}
+};
 
 class Trie {
   public readonly parent: Trie | null = null;
