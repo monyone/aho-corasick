@@ -19,6 +19,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     return new Transform({
@@ -29,7 +30,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
           return;
         }
 
-        const generator = aho.processTextSync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
+        const generator = aho.processTextSync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
         let result = generator.next();
         while (!result.done) {
           this.push(result.value);
@@ -56,6 +57,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     return new Transform({
@@ -66,7 +68,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
           return;
         }
 
-        const generator = aho.processTextAsync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
+        const generator = aho.processTextAsync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
         let result = await generator.next();
         while (!result.done) {
           this.push(result.value);

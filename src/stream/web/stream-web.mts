@@ -17,11 +17,12 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     return new TransformStream<string, string>({
       transform(chunk, controller) {
-        const generator = aho.processTextSync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
+        const generator = aho.processTextSync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
         let result = generator.next();
         while (!result.done) {
           controller.enqueue(result.value);
@@ -46,11 +47,12 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     return new TransformStream<string, string>({
       async transform(chunk, controller) {
-        const generator = aho.processTextAsync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
+        const generator = aho.processTextAsync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
         let result = await generator.next();
         while (!result.done) {
           controller.enqueue(result.value);
@@ -75,11 +77,12 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     return new TransformStream<string, T | K>({
       transform(chunk, controller) {
-        const generator = aho.processTextSync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
+        const generator = aho.processTextSync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
         let result = generator.next();
         while (!result.done) {
           controller.enqueue(result.value);
@@ -104,11 +107,12 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     return new TransformStream<string, T | K>({
       async transform(chunk, controller) {
-        const generator = aho.processTextAsync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
+        const generator = aho.processTextAsync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
         let result = await generator.next();
         while (!result.done) {
           controller.enqueue(result.value);

@@ -45,10 +45,11 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     const write = (chunk: string): ImperativeWithTentativeResult<string, string, string> => {
-      const generator = this.processTextSync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
+      const generator = this.processTextSync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
       const confirmed : ImperativeResult<string, string> = []
       while (true) {
         const { value, done } = generator.next();
@@ -74,10 +75,11 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     const write = async (chunk: string): AsyncImperativeWithTentativeResult<string, string, string> => {
-      const generator = this.processTextAsync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
+      const generator = this.processTextAsync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
       const confirmed : ImperativeResult<string, string> = []
       while (true) {
         const { value, done } = await generator.next();
@@ -107,10 +109,11 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     const write = (chunk: string): ImperativeWithTentativeResult<T, K, U> => {
-      const generator = this.processTextSync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
+      const generator = this.processTextSync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
       const confirmed : ImperativeResult<T, K> = []
       while (true) {
         const { value, done } = generator.next();
@@ -136,10 +139,11 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     const write = async (chunk: string): AsyncImperativeWithTentativeResult<T, K, U> => {
-      const generator = this.processTextAsync(state, deque, chunk, prev, confirmed_offset, collector, collect, detect);
+      const generator = this.processTextAsync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
       const confirmed : ImperativeResult<T, K> = []
       while (true) {
         const { value, done } = await generator.next();

@@ -81,10 +81,11 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     for (const text of iterable) {
-      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, confirmed_offset, collector, collect, detect);
+      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
     yield* this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect);
   }
@@ -97,10 +98,11 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
-      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, confirmed_offset, collector, collect, detect);
+      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
     yield* this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect);
   }
@@ -113,10 +115,11 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     for (const text of iterable) {
-      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, confirmed_offset, collector, collect, detect);
+      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
     yield* this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect);
   }
@@ -129,10 +132,11 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
+    let stop: boolean = false;
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
-      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, confirmed_offset, collector, collect, detect);
+      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
     yield* this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect);
   }
