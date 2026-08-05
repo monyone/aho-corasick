@@ -40,7 +40,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
         cb();
       },
       flush(cb) {
-        for (const chunk of aho.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect)) {
+        for (const chunk of aho.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect)) {
           this.push(chunk);
         }
         cb();
@@ -78,7 +78,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
         cb();
       },
       async flush(cb) {
-        for await (const chunk of aho.cleanupTextAsync(state, deque, confirmed_offset, collector, collect, detect)) {
+        for await (const chunk of aho.cleanupTextAsync(state, deque, prev, confirmed_offset, collector, collect, detect)) {
           this.push(chunk);
         }
         cb();

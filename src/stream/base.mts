@@ -370,10 +370,18 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     return [state, prev, confirmed_offset];
   }
 
-  protected *cleanupTextSync<T, K>(state: Node, deque: Deque<Match>, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Iterable<T | K> {
+  protected *cleanupTextSync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Iterable<T | K> {
     const remain_offset = collector.length;
 
     if (this.boundaryConfig != null) {
+      if (prev == null) {
+        while (state !== this.root && !(state.can(OPEN))) {
+          state = state.failure!;
+        }
+        state = state.go(OPEN) ?? this.root;
+        this.maintainDeque(state, deque, 0, remain_offset);
+      }
+
       while (state !== this.root && !(state.can(CLOSE))) {
         state = state.failure!;
       }
@@ -402,10 +410,18 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       yield* collect(output_begin, collector.length);
     }
   }
-  protected async *cleanupTextAsync<T, K>(state: Node, deque: Deque<Match>, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncIterable<T | K> {
+  protected async *cleanupTextAsync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncIterable<T | K> {
     const remain_offset = collector.length;
 
     if (this.boundaryConfig != null) {
+      if (prev == null) {
+        while (state !== this.root && !(state.can(OPEN))) {
+          state = state.failure!;
+        }
+        state = state.go(OPEN) ?? this.root;
+        this.maintainDeque(state, deque, 0, remain_offset);
+      }
+
       while (state !== this.root && !(state.can(CLOSE))) {
         state = state.failure!;
       }

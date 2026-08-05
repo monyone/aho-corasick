@@ -31,7 +31,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
         [state, prev, confirmed_offset] = result.value;
       },
       flush(controller) {
-        for (const chunk of aho.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect)) {
+        for (const chunk of aho.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect)) {
           controller.enqueue(chunk);
         }
       }
@@ -61,7 +61,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
         [state, prev, confirmed_offset] = result.value;
       },
       async flush(controller) {
-        for await (const chunk of aho.cleanupTextAsync(state, deque, confirmed_offset, collector, collect, detect)) {
+        for await (const chunk of aho.cleanupTextAsync(state, deque, prev, confirmed_offset, collector, collect, detect)) {
           controller.enqueue(chunk);
         }
       }
@@ -91,7 +91,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
         [state, prev, confirmed_offset] = result.value;
       },
       flush(controller) {
-        for (const token of aho.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect)) {
+        for (const token of aho.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect)) {
           controller.enqueue(token);
         }
       }
@@ -121,7 +121,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
         [state, prev, confirmed_offset] = result.value;
       },
       async flush(controller) {
-        for await (const token of aho.cleanupTextAsync(state, deque, confirmed_offset, collector, collect, detect)) {
+        for await (const token of aho.cleanupTextAsync(state, deque, prev, confirmed_offset, collector, collect, detect)) {
           controller.enqueue(token);
         }
       }

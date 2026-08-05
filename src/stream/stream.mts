@@ -87,7 +87,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     for (const text of iterable) {
       [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
-    yield* this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect);
   }
 
   public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer): AsyncIterable<string> {
@@ -104,7 +104,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     for await (const text of iterable) {
       [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
-    yield* this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect);
   }
 
   public *tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K): Iterable<T | K> {
@@ -121,7 +121,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     for (const text of iterable) {
       [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
-    yield* this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect);
   }
 
   public async *tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K): AsyncIterable<T | K> {
@@ -138,7 +138,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     for await (const text of iterable) {
       [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
     }
-    yield* this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect);
   }
 }
 

@@ -62,7 +62,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
       return { confirmed , tentative: state.tentative! }
     };
     const end = (): ImperativeResult<string, string> => {
-      return Array.from(this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect));
+      return Array.from(this.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect));
     };
     return ImperativeWithTentativeHandle.from<string, string, string>(write, end);
   }
@@ -93,7 +93,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
     };
     const end = async (): AsyncImperativeResult<string, string> => {
       const confirmed : ImperativeResult<string, string> = []
-      for await (const chunk of this.cleanupTextAsync(state, deque, confirmed_offset, collector, collect, detect)) {
+      for await (const chunk of this.cleanupTextAsync(state, deque, prev, confirmed_offset, collector, collect, detect)) {
         confirmed.push(chunk);
       }
       return confirmed;
@@ -126,7 +126,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
       return { confirmed , tentative: tentative(state.tentative!) }
     };
     const end = (): ImperativeResult<T, K> => {
-      return Array.from(this.cleanupTextSync(state, deque, confirmed_offset, collector, collect, detect));
+      return Array.from(this.cleanupTextSync(state, deque, prev, confirmed_offset, collector, collect, detect));
     };
     return ImperativeWithTentativeHandle.from<T, K, U>(write, end);
   }
@@ -157,7 +157,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
     };
     const end = async (): AsyncImperativeResult<T, K> => {
       const confirmed : ImperativeResult<T, K> = []
-      for await (const chunk of this.cleanupTextAsync(state, deque, confirmed_offset, collector, collect, detect)) {
+      for await (const chunk of this.cleanupTextAsync(state, deque, prev, confirmed_offset, collector, collect, detect)) {
         confirmed.push(chunk);
       }
       return confirmed;
