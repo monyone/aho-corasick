@@ -278,14 +278,16 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
           this.maintainDeque(this.root, deque, index, remain_offset);
         }
 
-        if (!state.can(ch)) { // use failure
+        let next = state.go(ch);
+        if (next == null) { // use failure
           const old_depth = state.depth;
-          while (state !== this.root && !(state.can(ch))) {
+          while (state !== this.root && next == null) {
             state = state.failure!;
+            next = state.go(ch);
           }
 
           const new_depth = state.depth;
-          confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : width);
+          confirmed_index += (old_depth - new_depth) + (next != null ? 0 : width);
           while (!deque.empty()) {
             const first = deque.peekFirst()!;
             if (first.begin >= confirmed_index) { break; }
@@ -300,7 +302,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
             deque.pollFirst()!;
           }
         }
-        state = state.go(ch) ?? this.root;
+        state = next ?? this.root;
         index += width;
 
         switch (sentinel) {
@@ -347,14 +349,16 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
           this.maintainDeque(this.root, deque, index, remain_offset);
         }
 
-        if (!state.can(ch)) { // use failure
+        let next = state.go(ch);
+        if (next == null) { // use failure
           const old_depth = state.depth;
-          while (state !== this.root && !(state.can(ch))) {
+          while (state !== this.root && next == null) {
             state = state.failure!;
+            next = state.go(ch);
           }
 
           const new_depth = state.depth;
-          confirmed_index += (old_depth - new_depth) + (state.can(ch) ? 0 : width);
+          confirmed_index += (old_depth - new_depth) + (next != null ? 0 : width);
           while (!deque.empty()) {
             const first = deque.peekFirst()!;
             if (first.begin >= confirmed_index) { break; }
@@ -372,7 +376,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
             deque.pollFirst()!;
           }
         }
-        state = state.go(ch) ?? this.root;
+        state = next ?? this.root;
         index += width;
 
         switch (sentinel) {
@@ -436,17 +440,21 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
 
     if (this.boundaryConfig != null) {
       if (prev == null) {
-        while (state !== this.root && !(state.can(OPEN))) {
+        let next = state.go(OPEN);
+        while (state !== this.root && next == null) {
           state = state.failure!;
+          next = state.go(OPEN);
         }
-        state = state.go(OPEN) ?? this.root;
+        state = next ?? this.root;
         maintainDequeIfNeeded(state);
       }
 
-      while (state !== this.root && !(state.can(CLOSE))) {
+      let next = state.go(CLOSE);
+      while (state !== this.root && next == null) {
         state = state.failure!;
+        next = state.go(CLOSE);
       }
-      state = state.go(CLOSE) ?? this.root;
+      state = next ?? this.root;
     }
     maintainDequeIfNeeded(state);
     // 空キーワード の場合は追加対応
@@ -480,17 +488,21 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
 
     if (this.boundaryConfig != null) {
       if (prev == null) {
-        while (state !== this.root && !(state.can(OPEN))) {
+        let next = state.go(OPEN);
+        while (state !== this.root && next == null) {
           state = state.failure!;
+          next = state.go(OPEN);
         }
-        state = state.go(OPEN) ?? this.root;
+        state = next ?? this.root;
         maintainDequeIfNeeded(state);
       }
 
-      while (state !== this.root && !(state.can(CLOSE))) {
+      let next = state.go(CLOSE);
+      while (state !== this.root && next == null) {
         state = state.failure!;
+        next = state.go(CLOSE);
       }
-      state = state.go(CLOSE) ?? this.root;
+      state = next ?? this.root;
     }
     maintainDequeIfNeeded(state)
     // 空キーワード の場合は追加対応
