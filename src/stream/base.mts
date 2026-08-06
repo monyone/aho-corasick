@@ -4,7 +4,7 @@ import Deque from "./deque.mts";
 export type Match = { begin: number, end: number, keyword: string };
 export type BoundaryTarget = (keyword: string) => boolean;
 export type BoundaryFunc = (left: string, right: string) => boolean;
-export type CollectorFunc<T> = (begin: number, end: number) => Iterable<T>
+export type CollectorFunc<T> = (begin: number, end: number) => Iterable<T>;
 export type DetectFunc<K> = (keyword: string) => K;
 export type CollectorOutputFunc<T> = (iterable: ReturnType<CollectorFunc<T>>) => void;;
 export type DetectOutputFunc<K> = (target: ReturnType<DetectFunc<K>>) => void;

@@ -24,7 +24,8 @@ export default class Collector {
     this.bound -= position;
   }
 
-  public *take(length: number): Iterable<string> {
+  public take(length: number): string[] {
+    const collect = [];
     length = Math.min(length, this.remains);
 
     while (length > 0 && !this.deque.empty()) {
@@ -34,9 +35,9 @@ export default class Collector {
       if (avail >= length) {
         const end = this.consumed + length;
         if (this.consumed === 0 && end === chunk.length) {
-          yield chunk;
+          collect.push(chunk);
         } else {
-          yield chunk.slice(this.consumed, end);
+          collect.push(chunk.slice(this.consumed, end));
         }
 
         if (end === chunk.length) {
@@ -48,12 +49,14 @@ export default class Collector {
         this.remains -= length;
         length = 0;
       } else {
-        yield chunk.slice(this.consumed)
+        collect.push(chunk.slice(this.consumed));
         this.consumed = 0;
         this.remains -= avail;
         length -= avail;
       }
     }
+
+    return collect;
   }
 
   public skip(length: number): void {
