@@ -77,8 +77,6 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public *replaceSync(iterable: Iterable<string>, replacer: Replacer, stop?: StopFilter): Iterable<string> {
     const deque = new Deque<Match>(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-    const collect = (begin: number, end: number) => collector.take(end - begin);
-    const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
     let state = this.root;
     let prev: string | null = null;
@@ -87,20 +85,16 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     for (const text of iterable) {
       const output: string[] = [];
-      const pushT = (chunks: Iterable<string>) => {
-        for (const chunk of chunks) { output.push(chunk); }
-      }
-      const pushK = (chunk: string) => { output.push(chunk); }
-      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      const pushT = (chunk: string) => { output.push(chunk); }
+      const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
+      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
       yield* output;
     }
     {
       const output: string[] = [];
-      const pushT = (chunks: Iterable<string>) => {
-        for (const chunk of chunks) { output.push(chunk); }
-      }
-      const pushK = (chunk: string) => { output.push(chunk); }
-      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      const pushT = (chunk: string) => { output.push(chunk); }
+      const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
+      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
       yield* output;
     }
   }
@@ -108,8 +102,6 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer, stop?: StopFilter): AsyncIterable<string> {
     const deque = new Deque<Match>(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-    const collect = (begin: number, end: number) => collector.take(end - begin);
-    const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
     let state = this.root;
     let prev: string | null = null;
@@ -118,20 +110,16 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     for await (const text of iterable) {
       const output: string[] = [];
-      const pushT = (chunks: Iterable<string>) => {
-        for (const chunk of chunks) { output.push(chunk); }
-      }
-      const pushK = (chunk: string) => { output.push(chunk); }
-      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      const pushT = (chunk: string) => { output.push(chunk); }
+      const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
+      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
       yield* output;
     }
     {
       const output: string[] = [];
-      const pushT = (chunks: Iterable<string>) => {
-        for (const chunk of chunks) { output.push(chunk); }
-      }
-      const pushK = (chunk: string) => { output.push(chunk); }
-      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      const pushT = (chunk: string) => { output.push(chunk); }
+      const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
+      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
       yield* output;
     }
   }
@@ -139,8 +127,6 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public *tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): Iterable<T | K> {
     const deque = new Deque<Match>(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-    const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
-    const detect = (keyword: string) => target(keyword);
 
     let state = this.root;
     let prev: string | null = null;
@@ -149,20 +135,16 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     for (const text of iterable) {
       const output: (T | K)[] = [];
-      const pushT = (chunks: Iterable<T>) => {
-        for (const chunk of chunks) { output.push(chunk); }
-      }
-      const pushK = (chunk: K) => { output.push(chunk); }
-      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      const pushT = (chunk: string) => { output.push(normal(chunk)); }
+      const pushK = (chunk: string) => { output.push(target(chunk)); }
+      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
       yield* output;
     }
     {
       const output: (T | K)[] = [];
-      const pushT = (chunks: Iterable<T>) => {
-        for (const chunk of chunks) { output.push(chunk); }
-      }
-      const pushK = (chunk: K) => { output.push(chunk); }
-      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      const pushT = (chunk: string) => { output.push(normal(chunk)); }
+      const pushK = (chunk: string) => { output.push(target(chunk)); }
+      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
       yield* output;
     }
   }
@@ -170,8 +152,6 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public async *tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): AsyncIterable<T | K> {
     const deque = new Deque<Match>(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-    const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
-    const detect = (keyword: string) => target(keyword);
 
     let state = this.root;
     let prev: string | null = null;
@@ -180,20 +160,16 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     for await (const text of iterable) {
       const output: (T | K)[] = [];
-      const pushT = (chunks: Iterable<T>) => {
-        for (const chunk of chunks) { output.push(chunk); }
-      }
-      const pushK = (chunk: K) => { output.push(chunk); }
-      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      const pushT = (chunk: string) => { output.push(normal(chunk)); }
+      const pushK = (chunk: string) => { output.push(target(chunk)); }
+      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
       yield* output;
     }
     {
       const output: (T | K)[] = [];
-      const pushT = (chunks: Iterable<T>) => {
-        for (const chunk of chunks) { output.push(chunk); }
-      }
-      const pushK = (chunk: K) => { output.push(chunk); }
-      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      const pushT = (chunk: string) => { output.push(normal(chunk)); }
+      const pushK = (chunk: string) => { output.push(target(chunk)); }
+      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
       yield* output;
     }
   }

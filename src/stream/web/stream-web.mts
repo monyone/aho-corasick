@@ -1,7 +1,7 @@
 import Deque from "../deque.mts";
 import { type Replacer, type AsyncableReplacer, handleAsyncableReplacer, handleReplacer } from "../stream.mts";
 import Collector from "../collector.mts";
-import { AbstractStreamGeneralAhoCorasick, STOP_TYPE, type CollectorOutputFunc, type Match, type StopFilter } from "../base.mts";
+import { AbstractStreamGeneralAhoCorasick, STOP_TYPE, type Match, type StopFilter } from "../base.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
@@ -13,8 +13,6 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     const aho = this;
     const deque = new Deque<Match>(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-    const collect = (begin: number, end: number) => collector.take(end - begin);
-    const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
     let state = this.root;
     let prev: string | null = null;
@@ -23,18 +21,14 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     return new TransformStream<string, string>({
       transform(chunk, controller) {
-        const enqueueT = (chunks: Iterable<string>) => {
-          for (let chunk of chunks) { controller.enqueue(chunk); }
-        };
-        const enqueueK = (chunk: string) => { controller.enqueue(chunk); }
-        [state, prev, stop_state, confirmed_offset] = aho.processTextSync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, enqueueT, enqueueK, stop);
+        const enqueueT = (chunk: string) => { controller.enqueue(chunk); }
+        const enqueueK = (chunk: string) => { controller.enqueue(handleReplacer(chunk, replacer)); }
+        [state, prev, stop_state, confirmed_offset] = aho.processTextSync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, enqueueT, enqueueK, stop);
       },
       flush(controller) {
-        const enqueueT = (chunks: Iterable<string>) => {
-          for (let chunk of chunks) { controller.enqueue(chunk); }
-        };
-        const enqueueK = (chunk: string) => { controller.enqueue(chunk); }
-        aho.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, enqueueT, enqueueK, stop);
+        const enqueueT = (chunk: string) => { controller.enqueue(chunk); }
+        const enqueueK = (chunk: string) => { controller.enqueue(handleReplacer(chunk, replacer)); }
+        aho.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, enqueueT, enqueueK, stop);
       }
     });
   }
@@ -43,8 +37,6 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     const aho = this;
     const deque = new Deque<Match>(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-    const collect = (begin: number, end: number) => collector.take(end - begin);
-    const detect = (keyword: string) => handleAsyncableReplacer(keyword, replacer);
 
     let state = this.root;
     let prev: string | null = null;
@@ -53,18 +45,14 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     return new TransformStream<string, string>({
       async transform(chunk, controller) {
-        const enqueueT = (chunks: Iterable<string>) => {
-          for (let chunk of chunks) { controller.enqueue(chunk); }
-        };
-        const enqueueK = (chunk: string) => { controller.enqueue(chunk); }
-        [state, prev, stop_state, confirmed_offset] = await aho.processTextAsync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, enqueueT, enqueueK, stop);
+        const enqueueT = (chunk: string) => { controller.enqueue(chunk); }
+        const enqueueK = async (chunk: string) => { controller.enqueue(await handleAsyncableReplacer(chunk, replacer)); }
+        [state, prev, stop_state, confirmed_offset] = await aho.processTextAsync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, enqueueT, enqueueK, stop);
       },
       async flush(controller) {
-        const enqueueT = (chunks: Iterable<string>) => {
-          for (let chunk of chunks) { controller.enqueue(chunk); }
-        };
-        const enqueueK = (chunk: string) => { controller.enqueue(chunk); }
-        await aho.cleanupTextAsync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, enqueueT, enqueueK, stop)
+        const enqueueT = (chunk: string) => { controller.enqueue(chunk); }
+        const enqueueK = async (chunk: string) => { controller.enqueue(await handleAsyncableReplacer(chunk, replacer)); }
+        await aho.cleanupTextAsync(state, deque, prev, stop_state, confirmed_offset, collector, enqueueT, enqueueK, stop)
       }
     });
   }
@@ -83,18 +71,14 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     return new TransformStream<string, T | K>({
       transform(chunk, controller) {
-        const enqueueT = (chunks: Iterable<T>) => {
-          for (let chunk of chunks) { controller.enqueue(chunk); }
-        };
-        const enqueueK = (chunk: K) => { controller.enqueue(chunk); }
-        [state, prev, stop_state, confirmed_offset] = aho.processTextSync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, enqueueT, enqueueK, stop);
+        const enqueueT = (chunk: string) => { controller.enqueue(normal(chunk)); }
+        const enqueueK = (chunk: string) => { controller.enqueue(target(chunk)); }
+        [state, prev, stop_state, confirmed_offset] = aho.processTextSync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, enqueueT, enqueueK, stop);
       },
       flush(controller) {
-        const enqueueT = (chunks: Iterable<T>) => {
-          for (let chunk of chunks) { controller.enqueue(chunk); }
-        };
-        const enqueueK = (chunk: K) => { controller.enqueue(chunk); }
-        aho.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, enqueueT, enqueueK, stop);
+        const enqueueT = (chunk: string) => { controller.enqueue(normal(chunk)); }
+        const enqueueK = (chunk: string) => { controller.enqueue(target(chunk)); }
+        aho.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, enqueueT, enqueueK, stop);
       }
     });
   }
@@ -103,9 +87,6 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     const aho = this;
     const deque = new Deque<Match>(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-    const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
-    const detect = (keyword: string) => target(keyword);
-
     let state = this.root;
     let prev: string | null = null;
     let stop_state: STOP_TYPE = STOP_TYPE.NONE;
@@ -113,18 +94,14 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     return new TransformStream<string, T | K>({
       async transform(chunk, controller) {
-        const enqueueT = (chunks: Iterable<T>) => {
-          for (let chunk of chunks) { controller.enqueue(chunk); }
-        };
-        const enqueueK = (chunk: K) => { controller.enqueue(chunk); }
-        [state, prev, stop_state, confirmed_offset] = await aho.processTextAsync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, enqueueT, enqueueK, stop);
+        const enqueueT = (chunk: string) => { controller.enqueue(normal(chunk)); }
+        const enqueueK = async (chunk: string) => { controller.enqueue(await target(chunk)); }
+        [state, prev, stop_state, confirmed_offset] = await aho.processTextAsync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, enqueueT, enqueueK, stop);
       },
       async flush(controller) {
-        const enqueueT = (chunks: Iterable<T>) => {
-          for (let chunk of chunks) { controller.enqueue(chunk); }
-        };
-        const enqueueK = (chunk: K) => { controller.enqueue(chunk); }
-        await aho.cleanupTextAsync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, enqueueT, enqueueK, stop);
+        const enqueueT = (chunk: string) => { controller.enqueue(normal(chunk)); }
+        const enqueueK = async (chunk: string) => { controller.enqueue(await target(chunk)); }
+        await aho.cleanupTextAsync(state, deque, prev, stop_state, confirmed_offset, collector, enqueueT, enqueueK, stop);
       }
     });
   }
