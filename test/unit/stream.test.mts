@@ -379,7 +379,7 @@ describe('replaceSync', () => {
 
 describe('Collector', () => {
   test('take yields fed content in order across chunk boundaries', () => {
-    const collector = new Collector();
+    const collector = new Collector(2);
     collector.feed('abc');
     collector.feed('def');
     expect(Array.from(collector.take(2)).join('')).toBe('ab');
@@ -388,14 +388,14 @@ describe('Collector', () => {
   });
 
   test('take is capped by the remaining content', () => {
-    const collector = new Collector();
+    const collector = new Collector(1);
     collector.feed('abc');
     expect(Array.from(collector.take(10)).join('')).toBe('abc');
     expect(Array.from(collector.take(1)).join('')).toBe('');
   });
 
   test('skip discards exactly the content take would have returned', () => {
-    const collector = new Collector();
+    const collector = new Collector(2);
     collector.feed('abcdef');
     collector.skip(2);
     expect(Array.from(collector.take(2)).join('')).toBe('cd');
@@ -405,7 +405,7 @@ describe('Collector', () => {
   });
 
   test('length grows with feed and shifts with reposition', () => {
-    const collector = new Collector();
+    const collector = new Collector(2);
     collector.feed('abc');
     expect(collector.length).toBe(3);
     collector.feed('de');

@@ -11,8 +11,8 @@ export { URLLikeStopFilter } from '../filter.mts'
 export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public replaceStream(replacer: Replacer, stop?: StopFilter): TransformStream<string, string> {
     const aho = this;
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
@@ -41,8 +41,8 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
   public replaceStreamAsync(replacer: AsyncableReplacer, stop?: StopFilter): TransformStream<string, string> {
     const aho = this;
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleAsyncableReplacer(keyword, replacer);
 
@@ -71,8 +71,8 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
   public tokenizeStream<T, K>(normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): TransformStream<string, T | K> {
     const aho = this;
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
     const detect = (keyword: string) => target(keyword);
 
@@ -101,8 +101,8 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
   public tokenizeStreamAsync<T, K>(normal: (chunk: string) => T, target: (keyword: string) => K | PromiseLike<K>, stop?: StopFilter): TransformStream<string, T | K> {
     const aho = this;
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
     const detect = (keyword: string) => target(keyword);
 

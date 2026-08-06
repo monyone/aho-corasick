@@ -75,8 +75,8 @@ export const AsyncableReplacer = {
 
 export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public *replaceSync(iterable: Iterable<string>, replacer: Replacer, stop?: StopFilter): Iterable<string> {
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
@@ -92,8 +92,8 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   }
 
   public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer, stop?: StopFilter): AsyncIterable<string> {
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
@@ -109,8 +109,8 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   }
 
   public *tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): Iterable<T | K> {
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
     const detect = (keyword: string) => target(keyword);
 
@@ -126,8 +126,8 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   }
 
   public async *tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): AsyncIterable<T | K> {
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
     const detect = (keyword: string) => target(keyword);
 

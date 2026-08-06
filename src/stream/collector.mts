@@ -1,10 +1,14 @@
 import Deque from "./deque.mts";
 
 export default class Collector {
-  private deque = new Deque<string>();
+  private deque: Deque<string>;
   private consumed = 0;
   private remains = 0;
   private bound = 0;
+
+  public constructor(capacity: number) {
+    this.deque = new Deque<string>(capacity);
+  }
 
   public feed(chunk: string) {
     this.deque.addLast(chunk);

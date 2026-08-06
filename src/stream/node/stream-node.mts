@@ -13,8 +13,8 @@ export { URLLikeStopFilter } from '../filter.mts'
 export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public replaceStream(replacer: Replacer, stop?: StopFilter): Transform {
     const aho = this;
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
@@ -51,8 +51,8 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
   public replaceStreamAsync(replacer: AsyncableReplacer, stop?: StopFilter): Transform {
     const aho = this;
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleAsyncableReplacer(keyword, replacer);
 

@@ -151,8 +151,9 @@ export class CRTPTrie<T, K, Self extends CRTPTrie<T, K, Self>> {
 export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, string, Node>> {
   protected readonly boundaryConfig?: BoundaryEntry;
   protected root: Node;
-  protected readonly maxKeywordLength: number = 0;
-  protected readonly maintainLength: number = 0;
+  protected readonly maxSequenceLength: number = 0;
+  protected readonly dequeCapacity: number;
+  protected readonly maintainLength: number;
 
   constructor(keywords: string[], factory: (parent?: Node, depth?: 0 | 1) => Node, boundary?: BoundaryEntry) {
     this.root = factory();
@@ -160,8 +161,8 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
 
     // build goto
     for (const keyword of keywords) {
-      this.maxKeywordLength = Math.max(this.maxKeywordLength, keyword.length);
       for (const sequence of withSentinel(keyword, this.boundaryConfig)) {
+        this.maxSequenceLength = Math.max(this.maxSequenceLength, sequence.length);
         let current = this.root;
         for (let i = 0; i < sequence.length; i++) {
           const ch = sequence[i];
@@ -173,7 +174,8 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
         current.add(keyword);
       }
     }
-    this.maintainLength = this.maxKeywordLength * 2;
+    this.dequeCapacity = this.maxSequenceLength + 1;
+    this.maintainLength = this.maxSequenceLength * 2;
 
     // build failure
     {

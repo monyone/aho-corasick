@@ -39,8 +39,8 @@ const AsyncImperativeWithTentativeHandle = {
 
 export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
   public replaceSync(replacer: Replacer, stop?: StopFilter): ImperativeWithTentativeHandle<string, string, string> {
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleReplacer(keyword, replacer);
 
@@ -69,8 +69,8 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
   }
 
   public replaceAsync(replacer: AsyncableReplacer, stop?: StopFilter): AsyncImperativeWithTentativeHandle<string, string, string> {
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => collector.take(end - begin);
     const detect = (keyword: string) => handleAsyncableReplacer(keyword, replacer);
 
@@ -103,8 +103,8 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
   }
 
   public tokenizeSync<T, K, U>(normal: (chunk: string) => T, target: (keyword: string) => K, tentative: (tentative: string) => U, stop?: StopFilter): ImperativeWithTentativeHandle<T, K, U> {
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
     const detect = (keyword: string) => target(keyword);
 
@@ -133,8 +133,8 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
   }
 
   public tokenizeAsync<T, K, U>(normal: (chunk: string) => T, target: (keyword: string) => K | PromiseLike<K>, tentative: (tentative: string) => U, stop?: StopFilter): AsyncImperativeWithTentativeHandle<T, K, U> {
-    const deque = new Deque<Match>();
-    const collector = new Collector();
+    const deque = new Deque<Match>(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
     const detect = (keyword: string) => target(keyword);
 

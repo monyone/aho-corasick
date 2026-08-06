@@ -11,8 +11,8 @@ const SEPARATOR_BASE = SCHEME.length + 1;
 const BODY = SEPARATOR_BASE + SEPARATOR.length;
 
 export class URLLikeStopFilter implements StopFilter {
-  private zerolength: boolean;
-  private collector: Collector = new Collector();
+  private zerolength: boolean = false;
+  private collector: Collector = new Collector(BODY + 1);
   private advance: number = 0;
   private steps: number = 0;
   private progress: number = 0;
