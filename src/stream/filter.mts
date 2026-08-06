@@ -1,9 +1,9 @@
-import { STOP_BEGIN, STOP_END, type Stop } from "./base.mts";
+import { STOP_BEGIN, STOP_END, type BoundaryEntry, type Stop } from "./base.mts";
 import Collector from "./collector.mts";
 
 export interface StopFilter {
-  write(chunk: string): Iterable<string | Stop>;
-  end(): Iterable<string | Stop>;
+  write(chunk: string, entry?: BoundaryEntry): Iterable<string | Stop>;
+  end(entry?: BoundaryEntry): Iterable<string | Stop>;
 }
 
 const isWhitespace = (ch: string) => ch.length === 1 && /\s/.test(ch);

@@ -131,7 +131,7 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
     return ImperativeWithTentativeHandle.from<T, K, U>(write, end);
   }
 
-  public tokenizeAsync<T, K, U>(normal: (chunk: string) => T, target: (keyword: string) => K | Promise<K>, tentative: (tentative: string) => U): AsyncImperativeWithTentativeHandle<T, K, U> {
+  public tokenizeAsync<T, K, U>(normal: (chunk: string) => T, target: (keyword: string) => K | PromiseLike<K>, tentative: (tentative: string) => U): AsyncImperativeWithTentativeHandle<T, K, U> {
     const deque = new Deque<Match>();
     const collector = new Collector();
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);

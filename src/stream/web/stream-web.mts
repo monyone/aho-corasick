@@ -98,7 +98,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     });
   }
 
-  public tokenizeStreamAsync<T, K>(normal: (chunk: string) => T, target: (keyword: string) => K | Promise<K>): TransformStream<string, T | K> {
+  public tokenizeStreamAsync<T, K>(normal: (chunk: string) => T, target: (keyword: string) => K | PromiseLike<K>): TransformStream<string, T | K> {
     const aho = this;
     const deque = new Deque<Match>();
     const collector = new Collector();
