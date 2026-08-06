@@ -1,4 +1,4 @@
-import { AbstractStreamGeneralAhoCorasick, isPromiseLike } from "./base.mts";
+import { AbstractStreamGeneralAhoCorasick, isPromiseLike, type StopFilter } from "./base.mts";
 import Collector from "./collector.mts";
 import Deque from "./deque.mts";
 import { STOP_TYPE, type Match } from "./base.mts";
@@ -8,7 +8,8 @@ type AsyncableReplaceFunc = ((detect: string) => PromiseLike<ReturnType<ReplaceF
 export type Replacer = Record<string, string> | Map<string, string> | ReplaceFunc;
 export type AsyncableReplacer = Replacer | AsyncableReplaceFunc;
 export { Boundary } from './base.mts';
-export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match } from './base.mts';
+export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match, StopFilter } from './base.mts';
+export { URLLikeStopFilter } from './filter.mts'
 
 export const handleReplacer = (detect: string, replacer: Replacer): string => {
   if (replacer instanceof Map) {
@@ -73,7 +74,7 @@ export const AsyncableReplacer = {
 } as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
 
 export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
-  public *replaceSync(iterable: Iterable<string>, replacer: Replacer): Iterable<string> {
+  public *replaceSync(iterable: Iterable<string>, replacer: Replacer, stop?: StopFilter): Iterable<string> {
     const deque = new Deque<Match>();
     const collector = new Collector();
     const collect = (begin: number, end: number) => collector.take(end - begin);
@@ -81,16 +82,16 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: STOP_TYPE = STOP_TYPE.NONE;
+    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     for (const text of iterable) {
-      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
+      [state, prev, stop_state, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
     }
-    yield* this.cleanupTextSync(state, deque, prev, stop, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
   }
 
-  public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer): AsyncIterable<string> {
+  public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer, stop?: StopFilter): AsyncIterable<string> {
     const deque = new Deque<Match>();
     const collector = new Collector();
     const collect = (begin: number, end: number) => collector.take(end - begin);
@@ -98,16 +99,16 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: STOP_TYPE = STOP_TYPE.NONE;
+    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
-      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
+      [state, prev, stop_state, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
     }
-    yield* this.cleanupTextSync(state, deque, prev, stop, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
   }
 
-  public *tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K): Iterable<T | K> {
+  public *tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): Iterable<T | K> {
     const deque = new Deque<Match>();
     const collector = new Collector();
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
@@ -115,16 +116,16 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: STOP_TYPE = STOP_TYPE.NONE;
+    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     for (const text of iterable) {
-      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
+      [state, prev, stop_state, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
     }
-    yield* this.cleanupTextSync(state, deque, prev, stop, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
   }
 
-  public async *tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K): AsyncIterable<T | K> {
+  public async *tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): AsyncIterable<T | K> {
     const deque = new Deque<Match>();
     const collector = new Collector();
     const collect = (begin: number, end: number) => Array.from(collector.take(end - begin), normal);
@@ -132,13 +133,13 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: STOP_TYPE = STOP_TYPE.NONE;
+    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
-      [state, prev, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop, confirmed_offset, collector, collect, detect);
+      [state, prev, stop_state, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
     }
-    yield* this.cleanupTextSync(state, deque, prev, stop, confirmed_offset, collector, collect, detect);
+    yield* this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
   }
 }
 

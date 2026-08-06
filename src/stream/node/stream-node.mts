@@ -3,14 +3,15 @@ import { Transform } from "node:stream";
 import Deque from "../deque.mts";
 import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleReplacer } from "../stream.mts";
 import Collector from "../collector.mts";
-import { AbstractStreamGeneralAhoCorasick, STOP_TYPE, type Match } from "../base.mts";
+import { AbstractStreamGeneralAhoCorasick, STOP_TYPE, type Match, type StopFilter } from "../base.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
-export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match } from "../base.mts";
+export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match, StopFilter } from "../base.mts";
+export { URLLikeStopFilter } from '../filter.mts'
 
 export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
-  public replaceStream(replacer: Replacer): Transform {
+  public replaceStream(replacer: Replacer, stop?: StopFilter): Transform {
     const aho = this;
     const deque = new Deque<Match>();
     const collector = new Collector();
@@ -19,7 +20,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: STOP_TYPE = STOP_TYPE.NONE;
+    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     return new Transform({
@@ -30,17 +31,17 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
           return;
         }
 
-        const generator = aho.processTextSync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
+        const generator = aho.processTextSync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
         let result = generator.next();
         while (!result.done) {
           this.push(result.value);
           result = generator.next();
         }
-        [state, prev, confirmed_offset] = result.value;
+        [state, prev, stop_state, confirmed_offset] = result.value;
         cb();
       },
       flush(cb) {
-        for (const chunk of aho.cleanupTextSync(state, deque, prev, stop, confirmed_offset, collector, collect, detect)) {
+        for (const chunk of aho.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop)) {
           this.push(chunk);
         }
         cb();
@@ -48,7 +49,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     });
   }
 
-  public replaceStreamAsync(replacer: AsyncableReplacer): Transform {
+  public replaceStreamAsync(replacer: AsyncableReplacer, stop?: StopFilter): Transform {
     const aho = this;
     const deque = new Deque<Match>();
     const collector = new Collector();
@@ -57,7 +58,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    let stop: STOP_TYPE = STOP_TYPE.NONE;
+    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
     let confirmed_offset = 0;
 
     return new Transform({
@@ -68,17 +69,17 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
           return;
         }
 
-        const generator = aho.processTextAsync(state, deque, chunk, prev, stop, confirmed_offset, collector, collect, detect);
+        const generator = aho.processTextAsync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
         let result = await generator.next();
         while (!result.done) {
           this.push(result.value);
           result = await generator.next();
         }
-        [state, prev, confirmed_offset] = result.value;
+        [state, prev, stop_state, confirmed_offset] = result.value;
         cb();
       },
       async flush(cb) {
-        for await (const chunk of aho.cleanupTextAsync(state, deque, prev, stop, confirmed_offset, collector, collect, detect)) {
+        for await (const chunk of aho.cleanupTextAsync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop)) {
           this.push(chunk);
         }
         cb();
