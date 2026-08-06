@@ -6,6 +6,8 @@ export type BoundaryTarget = (keyword: string) => boolean;
 export type BoundaryFunc = (left: string, right: string) => boolean;
 export type CollectorFunc<T> = (begin: number, end: number) => Iterable<T>
 export type DetectFunc<K> = (keyword: string) => K;
+export type CollectorOutputFunc<T> = (iterable: ReturnType<CollectorFunc<T>>) => void;;
+export type DetectOutputFunc<K> = (target: ReturnType<DetectFunc<K>>) => void;
 export type AsyncableDetectFunc<K> = (keyword: string) => K | PromiseLike<K>;
 
 export type BoundaryEntry = { target: BoundaryTarget, boundary: BoundaryFunc };
@@ -248,7 +250,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     }
   }
 
-  private *processTextInternalSync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Generator<T | K, [trie: Node, prev: string | null, confirmed_offset: number], unknown> {
+  private processTextInternalSync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>, outT: CollectorOutputFunc<T>, outK: DetectOutputFunc<K>): [trie: Node, prev: string | null, confirmed_offset: number] {
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
     const remain_offset = collector.length;
@@ -289,10 +291,10 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
             if (first.begin >= confirmed_index) { break; }
 
             if (output_begin < first.begin) {
-              yield* collect(output_begin, first.begin);
+              outT(collect(output_begin, first.begin));
             }
             collector.skip(first.end - first.begin);
-            yield detect(first.keyword);
+            outK(detect(first.keyword));
             output_begin = first.end;
 
             deque.pollFirst()!;
@@ -311,13 +313,13 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     }
 
     if (output_begin < confirmed_index) {
-      yield* collect(output_begin, confirmed_index);
+      outT(collect(output_begin, confirmed_index));
       output_begin = confirmed_index;
     }
     confirmed_offset = this.maintainAmortization(deque, collector, confirmed_index);
     return [state, prev, confirmed_offset];
   }
-  private async *processTextInternalAsync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncGenerator<T | K, [trie: Node, prev: string | null, confirmed_offset: number], unknown> {
+  private async processTextInternalAsync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_offset: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>, outT: CollectorOutputFunc<T>, outK: DetectOutputFunc<K>): Promise<[trie: Node, prev: string | null, confirmed_offset: number]> {
     let confirmed_index = confirmed_offset;
     let output_begin = confirmed_offset;
     const remain_offset = collector.length;
@@ -358,12 +360,12 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
             if (first.begin >= confirmed_index) { break; }
 
             if (output_begin < first.begin) {
-              yield* collect(output_begin, first.begin);
+              outT(collect(output_begin, first.begin));
             }
             {
               collector.skip(first.end - first.begin);
               const replaced = detect(first.keyword);
-              yield !isPromiseLike<K>(replaced) ? replaced : await replaced;
+              outK(!isPromiseLike<K>(replaced) ? replaced : await replaced);
             }
             output_begin = first.end;
 
@@ -383,23 +385,23 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     }
 
     if (output_begin < confirmed_index) {
-      yield* collect(output_begin, confirmed_index);
+      outT(collect(output_begin, confirmed_index));
       output_begin = confirmed_index;
     }
     confirmed_offset = this.maintainAmortization(deque, collector, confirmed_index);
     return [state, prev, confirmed_offset];
   }
 
-  protected *processTextSync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>, filter?: StopFilter): Generator<T | K, [trie: Node, prev: string | null, stop: STOP_TYPE, confirmed_offset: number], unknown> {
+  protected processTextSync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>, outT: CollectorOutputFunc<T>, outK: DetectOutputFunc<K>, filter?: StopFilter): [trie: Node, prev: string | null, stop: STOP_TYPE, confirmed_offset: number] {
     if (filter == null) {
-      [state, prev, confirmed_index] = yield* this.processTextInternalSync(state, deque, chunk, prev, stop, confirmed_index, collector, collect, detect);
+      [state, prev, confirmed_index] = this.processTextInternalSync(state, deque, chunk, prev, stop, confirmed_index, collector, collect, detect, outT, outK);
     } else {
       for (const syms of filter.write(chunk, this.boundaryConfig)) {
         switch (syms) {
           case STOP_BEGIN: stop = STOP_TYPE.BEGIN; break;
           case STOP_END: stop = STOP_TYPE.NONE; break;
           default: {
-            [state, prev, confirmed_index] = yield* this.processTextInternalSync<T, K>(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect);
+            [state, prev, confirmed_index] = this.processTextInternalSync<T, K>(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect, outT, outK);
             stop = stop === STOP_TYPE.BEGIN ? STOP_TYPE.INPROGRESS : stop;
           }
         }
@@ -407,16 +409,16 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     }
     return [state, prev, stop, confirmed_index];
   }
-  protected async *processTextAsync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>, filter?: StopFilter): AsyncGenerator<T | K, [trie: Node, prev: string | null, stop: STOP_TYPE, confirmed_offset: number], unknown> {
+  protected async processTextAsync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>, outT: CollectorOutputFunc<T>, outK: DetectOutputFunc<K>, filter?: StopFilter): Promise<[trie: Node, prev: string | null, stop: STOP_TYPE, confirmed_offset: number]> {
     if (filter == null) {
-      [state, prev, confirmed_index] = yield* this.processTextInternalAsync(state, deque, chunk, prev, stop, confirmed_index, collector, collect, detect);
+      [state, prev, confirmed_index] = await this.processTextInternalAsync(state, deque, chunk, prev, stop, confirmed_index, collector, collect, detect, outT, outK);
     } else {
       for (const syms of filter.write(chunk, this.boundaryConfig)) {
         switch (syms) {
           case STOP_BEGIN: stop = STOP_TYPE.BEGIN; break;
           case STOP_END: stop = STOP_TYPE.NONE; break;
           default: {
-            [state, prev, confirmed_index] = yield* this.processTextInternalAsync<T, K>(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect);
+            [state, prev, confirmed_index] = await this.processTextInternalAsync<T, K>(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect, outT, outK);
             stop = stop === STOP_TYPE.BEGIN ? STOP_TYPE.INPROGRESS : stop;
           }
         }
@@ -425,7 +427,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     return [state, prev, stop, confirmed_index];
   }
 
-  private *cleanupTextInternalSync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>): Iterable<T | K> {
+  private cleanupTextInternalSync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>, outT: CollectorOutputFunc<T>, outK: DetectOutputFunc<K>): void {
     const remain_offset = collector.length;
     const maintainDequeIfNeeded = (state: Node) => {
       if (stop === STOP_TYPE.INPROGRESS) { return; }
@@ -455,10 +457,10 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       const first = deque.peekFirst()!;
 
       if (output_begin < first.begin) {
-        yield* collect(output_begin, first.begin);
+        outT(collect(output_begin, first.begin));
       }
       collector.skip(first.end - first.begin);
-      yield detect(first.keyword);
+      outK(detect(first.keyword));
 
       output_begin = first.end;
 
@@ -466,10 +468,10 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     }
 
     if (output_begin < collector.length) {
-      yield* collect(output_begin, collector.length);
+      outT(collect(output_begin, collector.length));
     }
   }
-  private async *cleanupTextInternalAsync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>): AsyncIterable<T | K> {
+  private async cleanupTextInternalAsync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>, outT: CollectorOutputFunc<T>, outK: DetectOutputFunc<K>): Promise<void> {
     const remain_offset = collector.length;
     const maintainDequeIfNeeded = (state: Node) => {
       if (stop === STOP_TYPE.INPROGRESS) { return; }
@@ -499,12 +501,12 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       const first = deque.peekFirst()!;
 
       if (output_begin < first.begin) {
-        yield* collect(output_begin, first.begin);
+        outT(collect(output_begin, first.begin));
       }
       {
         collector.skip(first.end - first.begin);
         const replaced = detect(first.keyword);
-        yield !isPromiseLike<K>(replaced) ? replaced : await replaced;
+        outK(!isPromiseLike<K>(replaced) ? replaced : await replaced);
       }
       output_begin = first.end;
 
@@ -512,39 +514,39 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     }
 
     if (output_begin < collector.length) {
-      yield* collect(output_begin, collector.length);
+      outT(collect(output_begin, collector.length));
     }
   }
 
-  protected *cleanupTextSync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>, filter?: StopFilter): Iterable<T | K> {
+  protected cleanupTextSync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: DetectFunc<K>, outT: CollectorOutputFunc<T>, outK: DetectOutputFunc<K>, filter?: StopFilter): void {
     if (filter != null) {
       for (const syms of filter.end(this.boundaryConfig)) {
         switch (syms) {
           case STOP_BEGIN: stop = STOP_TYPE.BEGIN; break;
           case STOP_END: stop = STOP_TYPE.NONE; break;
           default: {
-            [state, prev, confirmed_index] = yield* this.processTextInternalSync(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect);
+            [state, prev, confirmed_index] = this.processTextInternalSync(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect, outT, outK);
             stop = stop === STOP_TYPE.BEGIN ? STOP_TYPE.INPROGRESS : stop;
           }
         }
       }
     }
-    return yield* this.cleanupTextInternalSync(state, deque, prev, stop, confirmed_index, collector, collect, detect);
+    this.cleanupTextInternalSync(state, deque, prev, stop, confirmed_index, collector, collect, detect, outT, outK);
   }
-  protected async *cleanupTextAsync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>, filter?: StopFilter): AsyncIterable<T | K> {
+  protected async cleanupTextAsync<T, K>(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc<T>, detect: AsyncableDetectFunc<K>, outT: CollectorOutputFunc<T>, outK: DetectOutputFunc<K>, filter?: StopFilter): Promise<void> {
     if (filter != null) {
       for (const syms of filter.end(this.boundaryConfig)) {
         switch (syms) {
           case STOP_BEGIN: stop = STOP_TYPE.BEGIN; break;
           case STOP_END: stop = STOP_TYPE.NONE; break;
           default: {
-            [state, prev, confirmed_index] = yield* this.processTextInternalAsync<T, K>(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect);
+            [state, prev, confirmed_index] = await this.processTextInternalAsync<T, K>(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect, outT, outK);
             stop = stop === STOP_TYPE.BEGIN ? STOP_TYPE.INPROGRESS : stop;
           }
         }
       }
     }
-    return yield* this.cleanupTextInternalAsync<T, K>(state, deque, prev, stop, confirmed_index, collector, collect, detect);
+    this.cleanupTextInternalAsync<T, K>(state, deque, prev, stop, confirmed_index, collector, collect, detect, outT, outK);
   }
 }
 

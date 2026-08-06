@@ -43,20 +43,22 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     let confirmed_offset = 0;
 
     const write = (chunk: string): ImperativeResult<string, string> => {
-      const generator = this.processTextSync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
-      const confirmed : ImperativeResult<string, string> = []
-      while (true) {
-        const { value, done } = generator.next();
-        if (done) {
-          [state, prev, stop_state, confirmed_offset] = value;
-          break;
-        }
-        confirmed.push(value);
+      const confirmed : ImperativeResult<string, string> = [];
+      const pushT = (chunks: Iterable<string>) => {
+        for (const chunk of chunks) { confirmed.push(chunk); }
       }
+      const pushK = (chunk: string) => { confirmed.push(chunk); }
+      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
       return confirmed;
     };
     const end = (): ImperativeResult<string, string> => {
-      return Array.from(this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop));
+      const confirmed : ImperativeResult<string, string> = [];
+      const pushT = (chunks: Iterable<string>) => {
+        for (const chunk of chunks) { confirmed.push(chunk); }
+      }
+      const pushK = (chunk: string) => { confirmed.push(chunk); }
+      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      return confirmed;
     };
     return ImperativeHandle.from<string, string>(write, end);
   }
@@ -73,23 +75,21 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     let confirmed_offset = 0;
 
     const write = async (chunk: string): AsyncImperativeResult<string, string> => {
-      const generator = this.processTextAsync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
-      const confirmed : ImperativeResult<string, string> = []
-      while (true) {
-        const { value, done } = await generator.next();
-        if (done) {
-          [state, prev, stop_state, confirmed_offset] = value;
-          break;
-        }
-        confirmed.push(value);
+      const confirmed : ImperativeResult<string, string> = [];
+      const pushT = (chunks: Iterable<string>) => {
+        for (const chunk of chunks) { confirmed.push(chunk); }
       }
+      const pushK = (chunk: string) => { confirmed.push(chunk); }
+      [state, prev, stop_state, confirmed_offset] =  await this.processTextAsync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
       return confirmed;
     };
     const end = async (): AsyncImperativeResult<string, string> => {
-      const confirmed : ImperativeResult<string, string> = []
-      for await (const chunk of this.cleanupTextAsync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop)) {
-        confirmed.push(chunk);
+      const confirmed : ImperativeResult<string, string> = [];
+      const pushT = (chunks: Iterable<string>) => {
+        for (const chunk of chunks) { confirmed.push(chunk); }
       }
+      const pushK = (chunk: string) => { confirmed.push(chunk); }
+      await this.cleanupTextAsync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop)
       return confirmed;
     };
     return AsyncImperativeHandle.from<string, string>(write, end);
@@ -107,20 +107,22 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     let confirmed_offset = 0;
 
     const write = (chunk: string): ImperativeResult<T, K> => {
-      const generator = this.processTextSync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
-      const confirmed : ImperativeResult<T, K> = []
-      while (true) {
-        const { value, done } = generator.next();
-        if (done) {
-          [state, prev, stop_state, confirmed_offset] = value;
-          break;
-        }
-        confirmed.push(value);
+      const confirmed : ImperativeResult<T, K> = [];
+      const pushT = (chunks: Iterable<T>) => {
+        for (const chunk of chunks) { confirmed.push(chunk); }
       }
+      const pushK = (chunk: K) => { confirmed.push(chunk); }
+      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
       return confirmed;
     };
     const end = (): ImperativeResult<T, K> => {
-      return Array.from(this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop));
+      const confirmed : ImperativeResult<T, K> = [];
+      const pushT = (chunks: Iterable<T>) => {
+        for (const chunk of chunks) { confirmed.push(chunk); }
+      }
+      const pushK = (chunk: K) => { confirmed.push(chunk); }
+      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      return confirmed;
     };
     return ImperativeHandle.from<T, K>(write, end);
   }
@@ -137,23 +139,21 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     let confirmed_offset = 0;
 
     const write = async (chunk: string): AsyncImperativeResult<T, K> => {
-      const generator = this.processTextAsync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
-      const confirmed : ImperativeResult<T, K> = []
-      while (true) {
-        const { value, done } = await generator.next();
-        if (done) {
-          [state, prev, stop_state, confirmed_offset] = value;
-          break;
-        }
-        confirmed.push(value);
+      const confirmed : ImperativeResult<T, K> = [];
+      const pushT = (chunks: Iterable<T>) => {
+        for (const chunk of chunks) { confirmed.push(chunk); }
       }
+      const pushK = (chunk: K) => { confirmed.push(chunk); }
+      [state, prev, stop_state, confirmed_offset] = await this.processTextAsync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
       return confirmed;
     };
     const end = async (): AsyncImperativeResult<T, K> => {
-      const confirmed : ImperativeResult<T, K> = []
-      for await (const chunk of this.cleanupTextAsync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop)) {
-        confirmed.push(chunk);
+      const confirmed : ImperativeResult<T, K> = [];
+      const pushT = (chunks: Iterable<T>) => {
+        for (const chunk of chunks) { confirmed.push(chunk); }
       }
+      const pushK = (chunk: K) => { confirmed.push(chunk); }
+      await this.cleanupTextAsync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
       return confirmed
     };
     return AsyncImperativeHandle.from<T, K>(write, end);

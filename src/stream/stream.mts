@@ -86,9 +86,23 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     let confirmed_offset = 0;
 
     for (const text of iterable) {
-      [state, prev, stop_state, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
+      const output: string[] = [];
+      const pushT = (chunks: Iterable<string>) => {
+        for (const chunk of chunks) { output.push(chunk); }
+      }
+      const pushK = (chunk: string) => { output.push(chunk); }
+      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      yield* output;
     }
-    yield* this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
+    {
+      const output: string[] = [];
+      const pushT = (chunks: Iterable<string>) => {
+        for (const chunk of chunks) { output.push(chunk); }
+      }
+      const pushK = (chunk: string) => { output.push(chunk); }
+      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      yield* output;
+    }
   }
 
   public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer, stop?: StopFilter): AsyncIterable<string> {
@@ -103,9 +117,23 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
-      [state, prev, stop_state, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
+      const output: string[] = [];
+      const pushT = (chunks: Iterable<string>) => {
+        for (const chunk of chunks) { output.push(chunk); }
+      }
+      const pushK = (chunk: string) => { output.push(chunk); }
+      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      yield* output;
     }
-    yield* this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
+    {
+      const output: string[] = [];
+      const pushT = (chunks: Iterable<string>) => {
+        for (const chunk of chunks) { output.push(chunk); }
+      }
+      const pushK = (chunk: string) => { output.push(chunk); }
+      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      yield* output;
+    }
   }
 
   public *tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): Iterable<T | K> {
@@ -120,9 +148,23 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     let confirmed_offset = 0;
 
     for (const text of iterable) {
-      [state, prev, stop_state, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
+      const output: (T | K)[] = [];
+      const pushT = (chunks: Iterable<T>) => {
+        for (const chunk of chunks) { output.push(chunk); }
+      }
+      const pushK = (chunk: K) => { output.push(chunk); }
+      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      yield* output;
     }
-    yield* this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
+    {
+      const output: (T | K)[] = [];
+      const pushT = (chunks: Iterable<T>) => {
+        for (const chunk of chunks) { output.push(chunk); }
+      }
+      const pushK = (chunk: K) => { output.push(chunk); }
+      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      yield* output;
+    }
   }
 
   public async *tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): AsyncIterable<T | K> {
@@ -137,9 +179,23 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     let confirmed_offset = 0;
 
     for await (const text of iterable) {
-      [state, prev, stop_state, confirmed_offset] = yield* this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
+      const output: (T | K)[] = [];
+      const pushT = (chunks: Iterable<T>) => {
+        for (const chunk of chunks) { output.push(chunk); }
+      }
+      const pushK = (chunk: K) => { output.push(chunk); }
+      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      yield* output;
     }
-    yield* this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, stop);
+    {
+      const output: (T | K)[] = [];
+      const pushT = (chunks: Iterable<T>) => {
+        for (const chunk of chunks) { output.push(chunk); }
+      }
+      const pushK = (chunk: K) => { output.push(chunk); }
+      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, collect, detect, pushT, pushK, stop);
+      yield* output;
+    }
   }
 }
 
