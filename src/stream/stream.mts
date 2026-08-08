@@ -74,7 +74,7 @@ export const AsyncableReplacer = {
 } as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
 
 export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
-  public *replaceSync(iterable: Iterable<string>, replacer: Replacer, stop?: StopFilter): Iterable<string> {
+  public *iterableReplaceSync(iterable: Iterable<string>, replacer: Replacer, stop?: StopFilter): Iterable<string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
 
@@ -94,7 +94,27 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     }
   }
 
-  public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer, stop?: StopFilter): AsyncIterable<string> {
+  public async *iterableReplaceAsync(iterable: Iterable<string>, replacer: AsyncableReplaceFunc, stop?: StopFilter): AsyncIterable<string> {
+    const session = this.makeSession(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
+
+    for (const text of iterable) {
+      const output: string[] = [];
+      const pushT = (chunk: string) => { output.push(chunk); }
+      const pushK = async (chunk: string) => { output.push(await handleAsyncableReplacer(chunk, replacer)); }
+      await this.processTextAsync(session, text, collector, pushT, pushK, stop);
+      yield* output;
+    }
+    {
+      const output: string[] = [];
+      const pushT = (chunk: string) => { output.push(chunk); }
+      const pushK = async (chunk: string) => { output.push(await handleAsyncableReplacer(chunk, replacer)); }
+      await this.cleanupTextAsync(session, collector, pushT, pushK, stop);
+      yield* output;
+    }
+  }
+
+  public async *asyncIterableReplaceSync(iterable: AsyncIterable<string>, replacer: Replacer, stop?: StopFilter): AsyncIterable<string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
 
@@ -114,10 +134,29 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     }
   }
 
-  public *tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): Iterable<T | K> {
+  public async *asyncIterableReplaceAsync(iterable: AsyncIterable<string>, replacer: AsyncableReplaceFunc, stop?: StopFilter): AsyncIterable<string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
 
+    for await (const text of iterable) {
+      const output: string[] = [];
+      const pushT = (chunk: string) => { output.push(chunk); }
+      const pushK = async (chunk: string) => { output.push(await handleAsyncableReplacer(chunk, replacer)); }
+      await this.processTextAsync(session, text, collector, pushT, pushK, stop);
+      yield* output;
+    }
+    {
+      const output: string[] = [];
+      const pushT = (chunk: string) => { output.push(chunk); }
+      const pushK = async (chunk: string) => { output.push(await handleAsyncableReplacer(chunk, replacer)); }
+      await this.cleanupTextAsync(session, collector, pushT, pushK, stop);
+      yield* output;
+    }
+  }
+
+  public *iterableTokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): Iterable<T | K> {
+    const session = this.makeSession(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
 
     for (const text of iterable) {
       const output: (T | K)[] = [];
@@ -135,7 +174,27 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     }
   }
 
-  public async *tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): AsyncIterable<T | K> {
+  public async *iterableTokenizeAsync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K | PromiseLike<K>, stop?: StopFilter): AsyncIterable<T | K> {
+    const session = this.makeSession(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
+
+    for (const text of iterable) {
+      const output: (T | K)[] = [];
+      const pushT = (chunk: string) => { output.push(normal(chunk)); }
+      const pushK = async (chunk: string) => { output.push(await target(chunk)); }
+      await this.processTextAsync(session, text, collector, pushT, pushK, stop);
+      yield* output;
+    }
+    {
+      const output: (T | K)[] = [];
+      const pushT = (chunk: string) => { output.push(normal(chunk)); }
+      const pushK = async (chunk: string) => { output.push(await target(chunk)); }
+      await this.cleanupTextAsync(session, collector, pushT, pushK, stop);
+      yield* output;
+    }
+  }
+
+  public async *asyncIterableTokenizeSync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): AsyncIterable<T | K> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
 
@@ -153,6 +212,46 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
       this.cleanupTextSync(session, collector, pushT, pushK, stop);
       yield* output;
     }
+  }
+
+  public async *asyncIterableTokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K | PromiseLike<K>, stop?: StopFilter): AsyncIterable<T | K> {
+    const session = this.makeSession(this.dequeCapacity);
+    const collector = new Collector(this.maintainLength);
+
+    for await (const text of iterable) {
+      const output: (T | K)[] = [];
+      const pushT = (chunk: string) => { output.push(normal(chunk)); }
+      const pushK = async (chunk: string) => { output.push(await target(chunk)); }
+      await this.processTextAsync(session, text, collector, pushT, pushK, stop);
+      yield* output;
+    }
+    {
+      const output: (T | K)[] = [];
+      const pushT = (chunk: string) => { output.push(normal(chunk)); }
+      const pushK = async (chunk: string) => { output.push(await target(chunk)); }
+      await this.cleanupTextAsync(session, collector, pushT, pushK, stop);
+      yield* output;
+    }
+  }
+
+  /** @deprecated */
+  public replaceSync(iterable: Iterable<string>, replacer: Replacer, stop?: StopFilter): Iterable<string> {
+    return this.iterableReplaceSync(iterable, replacer, stop);
+  }
+
+  /** @deprecated */
+  public replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer, stop?: StopFilter): AsyncIterable<string> {
+    return this.asyncIterableReplaceSync(iterable, replacer, stop);
+  }
+
+  /** @deprecated */
+  public tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): Iterable<T | K> {
+    return this.iterableTokenizeSync(iterable, normal, target, stop);
+  }
+
+  /** @deprecated */
+  public tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): AsyncIterable<T | K> {
+    return this.asyncIterableTokenizeSync(iterable, normal, target, stop);
   }
 }
 
