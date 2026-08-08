@@ -75,101 +75,82 @@ export const AsyncableReplacer = {
 
 export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public *replaceSync(iterable: Iterable<string>, replacer: Replacer, stop?: StopFilter): Iterable<string> {
-    const deque = new Deque<Match>(this.dequeCapacity);
+    const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-
-    let state = this.root;
-    let prev: string | null = null;
-    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
-    let confirmed_offset = 0;
 
     for (const text of iterable) {
       const output: string[] = [];
       const pushT = (chunk: string) => { output.push(chunk); }
       const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
-      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+      this.processTextSync(session, text, collector, pushT, pushK, stop);
       yield* output;
     }
     {
       const output: string[] = [];
       const pushT = (chunk: string) => { output.push(chunk); }
       const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
-      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+      this.cleanupTextSync(session, collector, pushT, pushK, stop);
       yield* output;
     }
   }
 
   public async *replaceAsync(iterable: AsyncIterable<string>, replacer: Replacer, stop?: StopFilter): AsyncIterable<string> {
-    const deque = new Deque<Match>(this.dequeCapacity);
+    const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-
-    let state = this.root;
-    let prev: string | null = null;
-    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
-    let confirmed_offset = 0;
 
     for await (const text of iterable) {
       const output: string[] = [];
       const pushT = (chunk: string) => { output.push(chunk); }
       const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
-      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+      this.processTextSync(session, text, collector, pushT, pushK, stop);
       yield* output;
     }
     {
       const output: string[] = [];
       const pushT = (chunk: string) => { output.push(chunk); }
       const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
-      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+      this.cleanupTextSync(session, collector, pushT, pushK, stop);
       yield* output;
     }
   }
 
   public *tokenizeSync<T, K>(iterable: Iterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): Iterable<T | K> {
-    const deque = new Deque<Match>(this.dequeCapacity);
+    const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
 
-    let state = this.root;
-    let prev: string | null = null;
-    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
-    let confirmed_offset = 0;
 
     for (const text of iterable) {
       const output: (T | K)[] = [];
       const pushT = (chunk: string) => { output.push(normal(chunk)); }
       const pushK = (chunk: string) => { output.push(target(chunk)); }
-      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+      this.processTextSync(session, text, collector, pushT, pushK, stop);
       yield* output;
     }
     {
       const output: (T | K)[] = [];
       const pushT = (chunk: string) => { output.push(normal(chunk)); }
       const pushK = (chunk: string) => { output.push(target(chunk)); }
-      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+      this.cleanupTextSync(session, collector, pushT, pushK, stop);
       yield* output;
     }
   }
 
   public async *tokenizeAsync<T, K>(iterable: AsyncIterable<string>, normal: (chunk: string) => T, target: (keyword: string) => K, stop?: StopFilter): AsyncIterable<T | K> {
-    const deque = new Deque<Match>(this.dequeCapacity);
+    const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-
-    let state = this.root;
-    let prev: string | null = null;
-    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
-    let confirmed_offset = 0;
 
     for await (const text of iterable) {
       const output: (T | K)[] = [];
       const pushT = (chunk: string) => { output.push(normal(chunk)); }
       const pushK = (chunk: string) => { output.push(target(chunk)); }
-      [state, prev, stop_state, confirmed_offset] = this.processTextSync(state, deque, text, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+      this.processTextSync(session, text, collector, pushT, pushK, stop);
       yield* output;
     }
     {
       const output: (T | K)[] = [];
       const pushT = (chunk: string) => { output.push(normal(chunk)); }
       const pushK = (chunk: string) => { output.push(target(chunk)); }
-      this.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+      this.cleanupTextSync(session, collector, pushT, pushK, stop);
       yield* output;
     }
   }

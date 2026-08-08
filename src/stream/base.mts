@@ -148,15 +148,30 @@ export class CRTPTrie<T, K, Self extends CRTPTrie<T, K, Self>> {
   }
 }
 
-export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, string, Node>> {
+export class CRTPSession<T, K, Trie extends CRTPTrie<T, K, Trie>> {
+  public state: Trie;
+  public deque: Deque<Match>;
+  public prev: string | null = null;
+  public confirmed_index: number = 0;
+  public stop: STOP_TYPE = STOP_TYPE.NONE;
+
+  public constructor(state: Trie, capacity: number) {
+    this.state = state;
+    this.deque = new Deque(capacity);
+  }
+}
+
+export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, string, Node>, Session extends CRTPSession<Sym, string, Node>> {
   protected readonly boundaryConfig?: BoundaryEntry;
   protected root: Node;
+  protected makeSession: (capacity: number) => Session;
   protected readonly maxSequenceLength: number = 0;
   protected readonly dequeCapacity: number;
   protected readonly maintainLength: number;
 
-  constructor(keywords: string[], factory: (parent?: Node, depth?: 0 | 1) => Node, boundary?: BoundaryEntry) {
-    this.root = factory();
+  constructor(keywords: string[], makeTrie: (parent?: Node, depth?: 0 | 1) => Node, makeSession: (root: Node, capacity: number) => Session, boundary?: BoundaryEntry) {
+    this.root = makeTrie();
+    this.makeSession = (capacity: number) => makeSession(this.root, capacity);
     this.boundaryConfig = boundary;
 
     // build goto
@@ -167,7 +182,7 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
         for (let i = 0; i < sequence.length; i++) {
           const ch = sequence[i];
           const width = typeof(ch) === 'string' ? 1 : 0
-          let next = current.go(ch) ?? factory(current, width);
+          let next = current.go(ch) ?? makeTrie(current, width);
           current.define(ch, next);
           current = next;
         }
@@ -248,9 +263,10 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     }
   }
 
-  private processTextInternalSync(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_offset: number, collector: Collector, collect: CollectorFunc, detect: DetectFunc): [trie: Node, prev: string | null, confirmed_offset: number] {
-    let confirmed_index = confirmed_offset;
-    let output_begin = confirmed_offset;
+  private processTextInternalSync(session: Session, chunk: string, collector: Collector, collect: CollectorFunc, detect: DetectFunc): void {
+    let { state, deque, confirmed_index, prev, stop } = session;
+    let output_begin = confirmed_index;
+
     const remain_offset = collector.length;
     collector.feed(chunk);
 
@@ -316,12 +332,15 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       collector.consume(confirmed_index - output_begin, collect);
       output_begin = confirmed_index;
     }
-    confirmed_offset = this.maintainAmortization(deque, collector, confirmed_index);
-    return [state, prev, confirmed_offset];
+
+    session.state = state;
+    session.confirmed_index = this.maintainAmortization(deque, collector, confirmed_index);
+    session.prev = prev;
   }
-  private async processTextInternalAsync(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_offset: number, collector: Collector, collect: CollectorFunc, detect: AsyncableDetectFunc): Promise<[trie: Node, prev: string | null, confirmed_offset: number]> {
-    let confirmed_index = confirmed_offset;
-    let output_begin = confirmed_offset;
+  private async processTextInternalAsync(session: Session, chunk: string, collector: Collector, collect: CollectorFunc, detect: AsyncableDetectFunc): Promise<void> {
+    let { state, deque, confirmed_index, prev, stop } = session;
+    let output_begin = confirmed_index;
+
     const remain_offset = collector.length;
     collector.feed(chunk);
 
@@ -390,46 +409,50 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       collector.consume(confirmed_index - output_begin, collect);
       output_begin = confirmed_index;
     }
-    confirmed_offset = this.maintainAmortization(deque, collector, confirmed_index);
-    return [state, prev, confirmed_offset];
+
+    session.state = state;
+    session.confirmed_index = this.maintainAmortization(deque, collector, confirmed_index);
+    session.prev = prev;
   }
 
-  protected processTextSync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc, detect: DetectFunc, filter?: StopFilter): [trie: Node, prev: string | null, stop: STOP_TYPE, confirmed_offset: number] {
+  protected processTextSync(session: Session, chunk: string, collector: Collector, collect: CollectorFunc, detect: DetectFunc, filter?: StopFilter): void {
     if (filter == null) {
-      [state, prev, confirmed_index] = this.processTextInternalSync(state, deque, chunk, prev, stop, confirmed_index, collector, collect, detect);
+      this.processTextInternalSync(session, chunk, collector, collect, detect);
     } else {
       for (const syms of filter.write(chunk, this.boundaryConfig)) {
         switch (syms) {
-          case STOP_BEGIN: stop = STOP_TYPE.BEGIN; break;
-          case STOP_END: stop = STOP_TYPE.NONE; break;
+          case STOP_BEGIN: session.stop = STOP_TYPE.BEGIN; break;
+          case STOP_END: session.stop = STOP_TYPE.NONE; break;
           default: {
-            [state, prev, confirmed_index] = this.processTextInternalSync(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect);
-            stop = stop === STOP_TYPE.BEGIN ? STOP_TYPE.INPROGRESS : stop;
+            this.processTextInternalSync(session, syms, collector, collect, detect);
+            if (session.stop === STOP_TYPE.BEGIN) { session.stop = STOP_TYPE.INPROGRESS; }
+            break;
           }
         }
       }
     }
-    return [state, prev, stop, confirmed_index];
   }
-  protected async processTextAsync<T, K>(state: Node, deque: Deque<Match>, chunk: string, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc, detect: AsyncableDetectFunc, filter?: StopFilter): Promise<[trie: Node, prev: string | null, stop: STOP_TYPE, confirmed_offset: number]> {
+  protected async processTextAsync(session: Session, chunk: string, collector: Collector, collect: CollectorFunc, detect: AsyncableDetectFunc, filter?: StopFilter): Promise<void> {
     if (filter == null) {
-      [state, prev, confirmed_index] = await this.processTextInternalAsync(state, deque, chunk, prev, stop, confirmed_index, collector, collect, detect);
+      await this.processTextInternalAsync(session, chunk, collector, collect, detect);
     } else {
       for (const syms of filter.write(chunk, this.boundaryConfig)) {
         switch (syms) {
-          case STOP_BEGIN: stop = STOP_TYPE.BEGIN; break;
-          case STOP_END: stop = STOP_TYPE.NONE; break;
+          case STOP_BEGIN: session.stop = STOP_TYPE.BEGIN; break;
+          case STOP_END: session.stop = STOP_TYPE.NONE; break;
           default: {
-            [state, prev, confirmed_index] = await this.processTextInternalAsync(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect);
-            stop = stop === STOP_TYPE.BEGIN ? STOP_TYPE.INPROGRESS : stop;
+            await this.processTextInternalAsync(session, syms, collector, collect, detect);
+            if (session.stop === STOP_TYPE.BEGIN) { session.stop = STOP_TYPE.INPROGRESS; }
+            break;
           }
         }
       }
     }
-    return [state, prev, stop, confirmed_index];
   }
 
-  private cleanupTextInternalSync(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc, detect: DetectFunc): void {
+  private cleanupTextInternalSync(session: Session, collector: Collector, collect: CollectorFunc, detect: DetectFunc): void {
+    let { state, deque, confirmed_index, prev, stop } = session;
+
     const remain_offset = collector.length;
     const maintainDequeIfNeeded = (state: Node) => {
       if (stop === STOP_TYPE.INPROGRESS) { return; }
@@ -477,7 +500,9 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
       collector.consume(collector.length - output_begin, collect);
     }
   }
-  private async cleanupTextInternalAsync(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc, detect: AsyncableDetectFunc): Promise<void> {
+  private async cleanupTextInternalAsync(session: Session, collector: Collector, collect: CollectorFunc, detect: AsyncableDetectFunc): Promise<void> {
+    let { state, deque, confirmed_index, prev, stop } = session;
+
     const remain_offset = collector.length;
     const maintainDequeIfNeeded = (state: Node) => {
       if (stop === STOP_TYPE.INPROGRESS) { return; }
@@ -528,53 +553,67 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     }
   }
 
-  protected cleanupTextSync(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc, detect: DetectFunc, filter?: StopFilter): void {
+  protected cleanupTextSync(session: Session, collector: Collector, collect: CollectorFunc, detect: DetectFunc, filter?: StopFilter): void {
     if (filter != null) {
       for (const syms of filter.end(this.boundaryConfig)) {
         switch (syms) {
-          case STOP_BEGIN: stop = STOP_TYPE.BEGIN; break;
-          case STOP_END: stop = STOP_TYPE.NONE; break;
+          case STOP_BEGIN: session.stop = STOP_TYPE.BEGIN; break;
+          case STOP_END: session.stop = STOP_TYPE.NONE; break;
           default: {
-            [state, prev, confirmed_index] = this.processTextInternalSync(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect);
-            stop = stop === STOP_TYPE.BEGIN ? STOP_TYPE.INPROGRESS : stop;
+            this.processTextInternalSync(session, syms, collector, collect, detect);
+            if (session.stop === STOP_TYPE.BEGIN) { session.stop = STOP_TYPE.INPROGRESS; }
+            break;
           }
         }
       }
     }
-    this.cleanupTextInternalSync(state, deque, prev, stop, confirmed_index, collector, collect, detect);
+    this.cleanupTextInternalSync(session, collector, collect, detect);
   }
-  protected async cleanupTextAsync(state: Node, deque: Deque<Match>, prev: string | null, stop: STOP_TYPE, confirmed_index: number, collector: Collector, collect: CollectorFunc, detect: AsyncableDetectFunc, filter?: StopFilter): Promise<void> {
+  protected async cleanupTextAsync(session: Session, collector: Collector, collect: CollectorFunc, detect: AsyncableDetectFunc, filter?: StopFilter): Promise<void> {
     if (filter != null) {
       for (const syms of filter.end(this.boundaryConfig)) {
         switch (syms) {
-          case STOP_BEGIN: stop = STOP_TYPE.BEGIN; break;
-          case STOP_END: stop = STOP_TYPE.NONE; break;
+          case STOP_BEGIN: session.stop = STOP_TYPE.BEGIN; break;
+          case STOP_END: session.stop = STOP_TYPE.NONE; break;
           default: {
-            [state, prev, confirmed_index] = await this.processTextInternalAsync(state, deque, syms, prev, stop, confirmed_index, collector, collect, detect);
-            stop = stop === STOP_TYPE.BEGIN ? STOP_TYPE.INPROGRESS : stop;
+            await this.processTextInternalAsync(session, syms, collector, collect, detect);
+            if (session.stop === STOP_TYPE.BEGIN) { session.stop = STOP_TYPE.INPROGRESS; }
+            break;
           }
         }
       }
     }
-    this.cleanupTextInternalAsync(state, deque, prev, stop, confirmed_index, collector, collect, detect);
+    await this.cleanupTextInternalAsync(session, collector, collect, detect);
   }
 }
 
 export class Trie extends CRTPTrie<Sym, string, Trie> {}
+export class Session extends CRTPSession<Sym, string, Trie> {};
 
-export abstract class AbstractStreamGeneralAhoCorasick extends AbstractStreamAhoCorasick<Trie> {
+export abstract class AbstractStreamGeneralAhoCorasick extends AbstractStreamAhoCorasick<Trie, Session> {
   constructor(keywords: string[], boundary?: BoundaryEntry) {
-    super(keywords, (parent, depth) => new Trie(parent, depth), boundary);
+    super(
+      keywords,
+      (parent, depth) => new Trie(parent, depth),
+      (trie, capacity) => new Session(trie, capacity),
+      boundary
+    );
   }
 }
 
 export class TentativeTrie extends CRTPTrie<Sym, string, TentativeTrie> {
   public tentative: string | null = null;
 }
+export class TentativeSession extends CRTPSession<Sym, string, TentativeTrie> {};
 
-export abstract class AbstractStreamTentativeAhoCorasick extends AbstractStreamAhoCorasick<TentativeTrie> {
+export abstract class AbstractStreamTentativeAhoCorasick extends AbstractStreamAhoCorasick<TentativeTrie, TentativeSession> {
   constructor(keywords: string[], boundary?: BoundaryEntry) {
-    super(keywords, (parent, depth) => new TentativeTrie(parent, depth), boundary);
+    super(
+      keywords,
+      (parent, depth) => new TentativeTrie(parent, depth),
+      (trie, capacity) => new TentativeSession(trie, capacity),
+      boundary
+    );
 
     // build tentative
     this.root.tentative = '';

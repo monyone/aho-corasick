@@ -13,13 +13,8 @@ export { URLLikeStopFilter } from '../filter.mts'
 export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public replaceStream(replacer: Replacer, stop?: StopFilter): Transform {
     const aho = this;
-    const deque = new Deque<Match>(this.dequeCapacity);
+    const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-
-    let state = this.root;
-    let prev: string | null = null;
-    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
-    let confirmed_offset = 0;
 
     return new Transform({
       decodeStrings: false,
@@ -30,13 +25,13 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
         }
         const pushT = (chunk: string) => { this.push(chunk); }
         const pushK = (chunk: string) => { this.push(handleReplacer(chunk, replacer)); }
-        [state, prev, stop_state, confirmed_offset] = aho.processTextSync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+        aho.processTextSync(session, chunk, collector, pushT, pushK, stop);
         cb();
       },
       flush(cb) {
         const pushT = (chunk: string) => { this.push(chunk); }
         const pushK = (chunk: string) => { this.push(handleReplacer(chunk, replacer)); }
-        aho.cleanupTextSync(state, deque, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+        aho.cleanupTextSync(session, collector, pushT, pushK, stop);
         cb();
       }
     });
@@ -44,13 +39,8 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
 
   public replaceStreamAsync(replacer: AsyncableReplacer, stop?: StopFilter): Transform {
     const aho = this;
-    const deque = new Deque<Match>(this.dequeCapacity);
+    const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
-
-    let state = this.root;
-    let prev: string | null = null;
-    let stop_state: STOP_TYPE = STOP_TYPE.NONE;
-    let confirmed_offset = 0;
 
     return new Transform({
       decodeStrings: false,
@@ -61,13 +51,13 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
         }
         const pushT = (chunk: string) => { this.push(chunk); }
         const pushK = async (chunk: string) => { this.push(await handleAsyncableReplacer(chunk, replacer)); }
-        [state, prev, stop_state, confirmed_offset] = await aho.processTextAsync(state, deque, chunk, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+        await aho.processTextAsync(session, chunk, collector, pushT, pushK, stop);
         cb();
       },
       async flush(cb) {
         const pushT = (chunk: string) => { this.push(chunk); }
         const pushK = async (chunk: string) => { this.push(await handleAsyncableReplacer(chunk, replacer)); }
-        await aho.cleanupTextAsync(state, deque, prev, stop_state, confirmed_offset, collector, pushT, pushK, stop);
+        await aho.cleanupTextAsync(session, collector, pushT, pushK, stop);
         cb();
       }
     });
