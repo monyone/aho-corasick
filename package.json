@@ -84,6 +84,16 @@
         "default": "./dist/stream/imperative/tentative.cjs"
       }
     },
+    "./stream/imperative/optimistic": {
+      "import": {
+        "types": "./dist/stream/imperative/optimistic.d.mts",
+        "default": "./dist/stream/imperative/optimistic.mjs"
+      },
+      "require": {
+        "types": "./dist/stream/imperative/optimistic.d.cts",
+        "default": "./dist/stream/imperative/optimistic.cjs"
+      }
+    },
     "./stream/web": {
       "import": {
         "types": "./dist/stream/web/stream-web.d.mts",

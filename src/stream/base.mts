@@ -639,7 +639,6 @@ export abstract class AbstractStreamTentativeAhoCorasick extends AbstractStreamA
 }
 
 export class OptimisticTrie<T, K> extends CRTPTrie<Sym, string, OptimisticTrie<T, K>> {
-  public terminal: boolean = false;
   public optimistic: (T | K)[] | null = null;
 }
 export class OptimisticSession<T, K> extends CRTPSession<Sym, string, OptimisticTrie<T, K>> {};
@@ -647,7 +646,6 @@ export class OptimisticSession<T, K> extends CRTPSession<Sym, string, Optimistic
 export abstract class AbstractStreamOptimisticAhoCorasick<T, K> extends AbstractStreamAhoCorasick<OptimisticTrie<T, K>, OptimisticSession<T, K>> {
   protected readonly normal: (text: string) => T;
   protected readonly target: (keyword: string) => K;
-
 
   constructor(keywords: string[], normal: (text: string) => T, target: (keyword: string) => K, boundary?: BoundaryEntry) {
     super(
@@ -659,20 +657,6 @@ export abstract class AbstractStreamOptimisticAhoCorasick<T, K> extends Abstract
     this.normal = normal;
     this.target = target;
 
-    // build terminal
-    for (const keyword of keywords) {
-      for (const sequence of withSentinel(keyword, this.boundaryConfig)) {
-        let current = this.root;
-        for (let i = 0; i < sequence.length; i++) {
-          const ch = sequence[i];
-          let next = current.go(ch)!;
-          current.define(ch, next);
-          current = next;
-        }
-        current.terminal = true;
-      }
-    }
-
     // build optimistic
     {
       let top = 0;
@@ -680,11 +664,29 @@ export abstract class AbstractStreamOptimisticAhoCorasick<T, K> extends Abstract
         [this.root, '', new Deque(this.dequeCapacity)]
       ];
       while (top < queue.length) {
-        const [current, keyword, deque] = queue[top++];
+        const [current, all, deque] = queue[top++];
 
-        if (current.terminal) {
-          while (!deque.empty()) { deque.pollFirst(); }
-          deque.addFirst({ begin: 0, end: keyword.length, keyword });
+        if (!current.empty()) {
+          const keyword = current.value()!;
+          const end = all.length;
+          const begin = end - keyword.length;
+
+          while (true) {
+            if (deque.empty()) {
+              deque.addLast({ begin, end, keyword });
+              break;
+            }
+
+            const last = deque.peekLast()!;
+            if (last.end <= begin && last.begin < begin) {
+              deque.addLast({ begin, end, keyword });
+              break;
+            } else if (begin > last.begin) {
+              break;
+            } else {
+              deque.pollLast();
+            }
+          }
         }
 
         {
@@ -694,24 +696,24 @@ export abstract class AbstractStreamOptimisticAhoCorasick<T, K> extends Abstract
           while (!clone.empty()) {
             const first = clone.peekFirst()!;
             if (output_begin < first.begin) {
-              optimistic.push(normal(keyword.slice(output_begin, first.begin)));
+              optimistic.push(normal(all.slice(output_begin, first.begin)));
             }
             optimistic.push(target(first.keyword));
             output_begin = first.end;
             clone.pollFirst()!;
           }
-          if (output_begin < keyword.length) {
-            optimistic.push(normal(keyword.slice(output_begin, keyword.length)));
-            output_begin = keyword.length;
+          if (output_begin < all.length) {
+            optimistic.push(normal(all.slice(output_begin, all.length)));
+            output_begin = all.length;
           }
           current.optimistic = optimistic;
         }
 
         for (const [ch, next] of current.entries()) {
           if (typeof(ch) === 'string') {
-            queue.push([next, keyword + ch, deque.clone()]);
+            queue.push([next, all + ch, deque.clone()]);
           } else {
-            queue.push([next, keyword, deque.clone()]);
+            queue.push([next, all, deque.clone()]);
           }
         }
       }

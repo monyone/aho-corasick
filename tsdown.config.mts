@@ -9,6 +9,7 @@ export default defineConfig({
     'src/stream/stream.mts',
     'src/stream/imperative/normal.mts',
     'src/stream/imperative/tentative.mts',
+    'src/stream/imperative/optimistic.mts',
     'src/stream/web/stream-web.mts',
     'src/stream/node/stream-node.mts',
   ],
