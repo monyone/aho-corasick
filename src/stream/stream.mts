@@ -1,7 +1,5 @@
 import { AbstractStreamGeneralAhoCorasick, isPromiseLike, type StopFilter } from "./base.mts";
 import Collector from "./collector.mts";
-import Deque from "./deque.mts";
-import { STOP_TYPE, type Match } from "./base.mts";
 
 type ReplaceFunc = ((detect: string) => (string | false));
 type AsyncableReplaceFunc = ((detect: string) => PromiseLike<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);

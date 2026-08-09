@@ -1,7 +1,6 @@
-import Deque from "../deque.mts";
 import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleReplacer } from "../stream.mts";
 import Collector from "../collector.mts";
-import { AbstractStreamTentativeAhoCorasick, STOP_TYPE, type Match, type StopFilter } from "../base.mts";
+import { AbstractStreamTentativeAhoCorasick, type StopFilter } from "../base.mts";
 import type { AsyncImperativeResult, ImperativeResult } from "./normal.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";

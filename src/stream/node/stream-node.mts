@@ -1,9 +1,8 @@
 import { Transform } from "node:stream";
 
-import Deque from "../deque.mts";
 import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleReplacer } from "../stream.mts";
 import Collector from "../collector.mts";
-import { AbstractStreamGeneralAhoCorasick, STOP_TYPE, type Match, type StopFilter } from "../base.mts";
+import { AbstractStreamGeneralAhoCorasick, type StopFilter } from "../base.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
