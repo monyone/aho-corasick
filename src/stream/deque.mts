@@ -9,6 +9,14 @@ export default class Deque<T> {
     this.deque = Array.from({ length: capacity + 1}, () => null);
   }
 
+  public clone(): Deque<T> {
+    const deque = new Deque<T>(this.capacity - 1);
+    for (const elem of this) {
+      deque.addLast(elem);
+    }
+    return deque;
+  }
+
   public empty(): boolean {
     return this.head === this.tail;
   }
