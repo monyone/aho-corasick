@@ -106,6 +106,7 @@ export const isPromiseLike = <T,>(value: unknown): value is PromiseLike<T> => {
   const isFunction = typeof(value) === "function";
   return (isObject || isFunction) && typeof((value as PromiseLike<T>).then) === "function";
 };
+export type NonPromiseLike<T> = T extends PromiseLike<unknown> ? never : T;
 
 export class CRTPTrie<T, K, Self extends CRTPTrie<T, K, Self>> {
   public readonly parent: Self | null = null;
@@ -648,7 +649,7 @@ export abstract class AbstractStreamOptimisticAhoCorasick<T, K> extends Abstract
   protected readonly normal: (text: string) => T;
   protected readonly target: (keyword: string) => K;
 
-  constructor(keywords: string[], normal: (text: string) => T, target: (keyword: string) => K, boundary?: BoundaryEntry) {
+  constructor(keywords: string[], normal: (text: string) => NonPromiseLike<T>, target: (keyword: string) => NonPromiseLike<K>, boundary?: BoundaryEntry) {
     super(
       keywords,
       (parent, depth) => new OptimisticTrie<T, K>(parent, depth),
