@@ -80,7 +80,7 @@ export default class Deque<T> {
     return elem;
   }
 
-  *[Symbol.iterator]() {
+  *[Symbol.iterator](): Generator<T> {
     for (let i = this.head; i !== this.tail; i = (i + 1) % this.capacity) {
       yield this.deque[i]!;
     }

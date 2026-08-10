@@ -252,4 +252,3 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     return this.asyncIterableTokenizeSync(iterable, normal, target, stop);
   }
 }
-

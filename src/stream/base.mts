@@ -1,5 +1,6 @@
 import Collector from "./collector.mts";
 import Deque from "./deque.mts";
+import PersistentStack from "./stack.mts";
 
 export type Match = { begin: number, end: number, keyword: string };
 export type BoundaryTarget = (keyword: string) => boolean;
@@ -639,10 +640,10 @@ export abstract class AbstractStreamTentativeAhoCorasick extends AbstractStreamA
 }
 
 export class OptimisticTrie<T, K> extends CRTPTrie<Sym, string, OptimisticTrie<T, K>> {
+  public tentative: string | null = null;
   public optimistic: (T | K)[] | null = null;
 }
 export class OptimisticSession<T, K> extends CRTPSession<Sym, string, OptimisticTrie<T, K>> {};
-
 export abstract class AbstractStreamOptimisticAhoCorasick<T, K> extends AbstractStreamAhoCorasick<OptimisticTrie<T, K>, OptimisticSession<T, K>> {
   protected readonly normal: (text: string) => T;
   protected readonly target: (keyword: string) => K;
@@ -657,64 +658,85 @@ export abstract class AbstractStreamOptimisticAhoCorasick<T, K> extends Abstract
     this.normal = normal;
     this.target = target;
 
+    // build tentative
+    this.root.tentative = '';
+    for (const keyword of keywords) {
+      for (const sequence of withSentinel(keyword, this.boundaryConfig)) {
+        let current = this.root;
+        for (let i = 0; i < sequence.length; i++) {
+          const ch = sequence[i];
+          current = current.go(ch)!;
+        }
+
+        while (current.tentative == null) {
+          // 本当は string に対する view で範囲を縮めて見れれば一番いいんだけど...
+          // slice は Node, Deno, Bun で slice をとると CoW でそういう挙動をしてくれる
+          current.tentative = keyword.slice(0, current.depth);
+          // あと、これに O(N) かかったとしても、検索時の劣化がなければ別にいい
+
+          current = current.parent!;
+        }
+      }
+    }
+
     // build optimistic
     {
       let top = 0;
-      const queue: [OptimisticTrie<T, K>, string, Deque<Match>][] = [
-        [this.root, '', new Deque(this.dequeCapacity)]
+      const queue: [OptimisticTrie<T, K>, PersistentStack<Match> | null][] = [
+        [this.root, null]
       ];
       while (top < queue.length) {
-        const [current, all, deque] = queue[top++];
+        const entry = queue[top++];
+        const current = entry[0];
+        let stack = entry[1];
+        const tentative = current.tentative!;
 
         if (!current.empty()) {
           const keyword = current.value()!;
-          const end = all.length;
+          const end = tentative.length;
           const begin = end - keyword.length;
 
           while (true) {
-            if (deque.empty()) {
-              deque.addLast({ begin, end, keyword });
+            if (stack == null) {
+              stack = new PersistentStack<Match>({ begin, end, keyword });
               break;
             }
 
-            const last = deque.peekLast()!;
+            const last = stack.value();
             if (last.end <= begin && last.begin < begin) {
-              deque.addLast({ begin, end, keyword });
+              stack = stack.push({ begin, end, keyword });
               break;
             } else if (begin > last.begin) {
               break;
             } else {
-              deque.pollLast();
+              stack = stack.pop();
             }
           }
         }
 
         {
-          const clone = deque.clone();
+          let node = stack;
           const optimistic: (T | K)[] = [];
-          let output_begin = 0;
-          while (!clone.empty()) {
-            const first = clone.peekFirst()!;
-            if (output_begin < first.begin) {
-              optimistic.push(normal(all.slice(output_begin, first.begin)));
+
+          let output_end = tentative.length;
+          while (node != null) {
+            const { begin, end, keyword } = node.value();
+
+            if (end < output_end) {
+              optimistic.push(normal(tentative.slice(end, output_end)));
             }
-            optimistic.push(target(first.keyword));
-            output_begin = first.end;
-            clone.pollFirst()!;
+            optimistic.push(target(keyword));
+            output_end = begin;
+            node = node.pop();
           }
-          if (output_begin < all.length) {
-            optimistic.push(normal(all.slice(output_begin, all.length)));
-            output_begin = all.length;
+          if (0 < output_end) {
+            optimistic.push(normal(tentative.slice(0, output_end)));
           }
-          current.optimistic = optimistic;
+          current.optimistic = optimistic.reverse();
         }
 
-        for (const [ch, next] of current.entries()) {
-          if (typeof(ch) === 'string') {
-            queue.push([next, all + ch, deque.clone()]);
-          } else {
-            queue.push([next, all, deque.clone()]);
-          }
+        for (const [_, next] of current.entries()) {
+          queue.push([next, stack]);
         }
       }
     }
