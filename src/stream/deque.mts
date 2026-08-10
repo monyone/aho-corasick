@@ -67,6 +67,7 @@ export default class Deque<T> {
   public pollFirst(): T | null {
     if (this.empty()) { return null; }
     const elem = this.peekFirst()!;
+    this.deque[this.first!] = null;
     this.head = (this.head + 1) % this.capacity;
     return elem;
   }
@@ -74,6 +75,7 @@ export default class Deque<T> {
   public pollLast(): T | null {
     if (this.empty()) { return null; }
     const elem = this.peekLast();
+    this.deque[this.last!] = null;
     this.tail = (this.tail - 1 + this.capacity) % this.capacity;
     return elem;
   }
