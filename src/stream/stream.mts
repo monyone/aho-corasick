@@ -92,7 +92,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     }
   }
 
-  public async *iterableReplaceAsync(iterable: Iterable<string>, replacer: AsyncableReplaceFunc, stop?: StopFilter): AsyncIterable<string> {
+  public async *iterableReplaceAsync(iterable: Iterable<string>, replacer: AsyncableReplacer, stop?: StopFilter): AsyncIterable<string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
 
@@ -132,7 +132,7 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     }
   }
 
-  public async *asyncIterableReplaceAsync(iterable: AsyncIterable<string>, replacer: AsyncableReplaceFunc, stop?: StopFilter): AsyncIterable<string> {
+  public async *asyncIterableReplaceAsync(iterable: AsyncIterable<string>, replacer: AsyncableReplacer, stop?: StopFilter): AsyncIterable<string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
 
