@@ -25,7 +25,8 @@ export default class UrlLikeStopFilter implements StopFilter {
     for (let i = 0; i < chunk.length; i++) {
       yield* this.step(chunk[i]);
     }
-    if (this.progress >= BODY) {
+
+    if (this.advance - this.steps > 0) {
       yield* this.collector.take(this.advance - this.steps);
       this.collector.reposition(this.advance - this.steps);
       this.advance = this.steps;
