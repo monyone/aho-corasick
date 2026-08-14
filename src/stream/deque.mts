@@ -8,6 +8,7 @@ export interface Deque<T> {
   peekLast(): T | null;
   pollFirst(): T | null;
   pollLast(): T | null;
+  clear(): void;
   [Symbol.iterator](): Iterator<T>;
 }
 
@@ -102,6 +103,16 @@ export class LinkedDeque<T> implements Deque<T> {
     return this.poll(this.end.prev!);
   }
 
+  public clear(): void {
+    this.length = 0;
+
+    this.begin.prev = this.begin;
+    this.end.next = this.end;
+
+    this.begin.next = this.end;
+    this.end.prev = this.begin;
+  }
+
   *[Symbol.iterator](): Iterator<T> {
     let node = this.begin.next!;
     while (node !== this.end) {
@@ -183,6 +194,10 @@ export class RingDeque<T> implements Deque<T> {
     this.deque[this.last!] = null;
     this.tail = (this.tail - 1 + this.capacity) % this.capacity;
     return elem;
+  }
+
+  public clear(): void {
+    while (!this.empty()) { this.pollLast(); }
   }
 
   *[Symbol.iterator](): Iterator<T> {

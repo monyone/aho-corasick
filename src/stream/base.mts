@@ -157,9 +157,21 @@ export class CRTPSession<T, K, Trie extends CRTPTrie<T, K, Trie>> {
   public confirmed_index: number = 0;
   public stop: STOP_TYPE = STOP_TYPE.NONE;
 
+  public readonly initial: Trie;
+  public readonly capacity: number;
+
   public constructor(state: Trie, capacity: number) {
-    this.state = state;
-    this.deque = new RingDeque(capacity);
+    this.initial = this.state = state;
+    this.capacity = capacity;
+    this.deque = new RingDeque(this.capacity);
+  }
+
+  public reset(): void {
+    this.state = this.initial;
+    this.deque.clear();
+    this.prev = null;
+    this.confirmed_index = 0;
+    this.stop = STOP_TYPE.NONE;
   }
 }
 
@@ -501,6 +513,10 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     if (output_begin < collector.length) {
       collector.consume(collector.length - output_begin, collect);
     }
+    confirmed_index = collector.length;
+
+    collector.reposition(confirmed_index);
+    session.reset();
   }
   private async cleanupTextInternalAsync(session: Session, collector: Collector, collect: CollectorFunc, detect: AsyncableDetectFunc): Promise<void> {
     let { state, deque, confirmed_index, prev, stop } = session;
@@ -553,6 +569,10 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
     if (output_begin < collector.length) {
       collector.consume(collector.length - output_begin, collect);
     }
+    confirmed_index = collector.length;
+
+    collector.reposition(confirmed_index);
+    session.reset();
   }
 
   protected cleanupTextSync(session: Session, collector: Collector, collect: CollectorFunc, detect: DetectFunc, filter?: StopFilter): void {
