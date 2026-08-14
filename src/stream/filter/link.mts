@@ -1,8 +1,6 @@
 import { STOP_BEGIN, STOP_END, type Stop, type StopFilter } from "../base.mts";
 import Collector from "../collector.mts";
 
-export type { StopFilter } from "../base.mts";
-
 const isWhitespace = (ch: string) => ch.length === 1 && /\s/.test(ch);
 const SCHEME = "http";
 const AFTER_SCHEME = SCHEME.length;
