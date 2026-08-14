@@ -2,7 +2,6 @@ import Collector from "../collector.mts";
 import { AbstractStreamOptimisticAhoCorasick, type StopFilter } from "../base.mts";
 import type { ImperativeResult } from "./normal.mts";
 
-export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
 export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match, StopFilter } from "../base.mts";
 export * from '../filter/index.mts'
