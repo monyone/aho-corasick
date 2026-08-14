@@ -8,7 +8,7 @@ const SEPARATOR = "://";
 const SEPARATOR_BASE = SCHEME.length + 1;
 const BODY = SEPARATOR_BASE + SEPARATOR.length;
 
-export default class URLLikeStopFilter implements StopFilter {
+export default class UrlLikeStopFilter implements StopFilter {
   private zerolength: boolean = false;
   private collector: Collector = new Collector();
   private advance: number = 0;
