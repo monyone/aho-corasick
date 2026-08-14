@@ -12,7 +12,7 @@ export type ImperativeHandle<T, K> = {
   write(chunk: string): ImperativeResult<T, K>;
   end(): ImperativeResult<T, K>;
 };
-export const ImperativeHandle = {
+const ImperativeHandle = {
   from<T, K>(write: (chunk: string) => ImperativeResult<T, K>, end: () => ImperativeResult<T, K>): ImperativeHandle<T, K> {
     return { write, end };
   }
@@ -23,7 +23,7 @@ export type AsyncImperativeHandle<T, K> = {
   write(chunk: string): AsyncImperativeResult<T, K>;
   end(): AsyncImperativeResult<T, K>;
 };
-export const AsyncImperativeHandle = {
+const AsyncImperativeHandle = {
   from<T, K>(write: (chunk: string) => AsyncImperativeResult<T, K>, end: () => AsyncImperativeResult<T, K>): AsyncImperativeHandle<T, K> {
     return { write, end };
   }
