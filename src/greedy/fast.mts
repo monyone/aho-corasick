@@ -379,6 +379,8 @@ export class AhoCorasick {
       prev = char;
     }
 
+    // boundary がある場合は 最後に CLOSE を入れる
+    // text長が 0 の場合は上記のループで入らない OPEN も入れる
     if (this.boundaryConfig != null) {
       let sentinel: Sentinel = CLOSE;
       if (prev == null) { sentinel = OPEN; }
@@ -487,6 +489,35 @@ export class AhoCorasick {
         }
       }
       prev = char;
+    }
+
+    // boundary がある場合は 最後に CLOSE を入れる
+    // text長が 0 の場合は上記のループで入らない OPEN も入れる
+    if (this.boundaryConfig != null) {
+      let sentinel: Sentinel = CLOSE;
+      if (prev == null) { sentinel = OPEN; }
+
+      LOOP:
+      while (true) {
+        const sym: Sym = sentinel;
+        const width = 0;
+        node = this.trie.go(node, sym);
+
+        {
+          const keyword = this.trie.query(node);
+          if (keyword != null) {
+            const length = keyword.length;
+            const end = text.length + width;
+            const begin = end - length;
+            push(begin, end, keyword);
+          }
+        }
+
+        switch (sentinel) {
+          case CLOSE: break LOOP;
+          case OPEN: sentinel = CLOSE; break;
+        }
+      }
     }
 
     // "" (empty) がありうるので、そのケースを対応

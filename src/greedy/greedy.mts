@@ -264,14 +264,6 @@ export class AhoCorasick {
         state = state.go(ch) ?? this.root;
 
         if (!state.empty()) { return true; }
-
-        if (i === text.length - 1 && sentinel == null) {
-          sentinel = CLOSE;
-          i += 1;
-          continue LOOP;
-        } else if (i >= text.length) {
-          break LOOP;
-        }
         switch (sentinel) {
           case CLOSE: sentinel = OPEN; break;
           case OPEN: sentinel = null; break;
@@ -282,6 +274,8 @@ export class AhoCorasick {
       prev = char;
     }
 
+    // boundary がある場合は 最後に CLOSE を入れる
+    // text長が 0 の場合は上記のループで入らない OPEN も入れる
     if (this.boundaryConfig != null) {
       let sentinel: Sentinel = CLOSE;
       if (prev == null) { sentinel = OPEN; }
@@ -376,15 +370,6 @@ export class AhoCorasick {
           push(begin, end, keyword);
         }
 
-        if (this.boundaryConfig != null) {
-          if (i === text.length - 1 && sentinel == null) {
-            sentinel = CLOSE;
-            i += 1;
-            continue LOOP;
-          } else if (i >= text.length) {
-            break LOOP;
-          }
-        }
         switch (sentinel) {
           case CLOSE: sentinel = OPEN; break;
           case OPEN: sentinel = null; break;
@@ -392,6 +377,37 @@ export class AhoCorasick {
         }
       }
       prev = char;
+    }
+
+    // boundary がある場合は 最後に CLOSE を入れる
+    // text長が 0 の場合は上記のループで入らない OPEN も入れる
+    if (this.boundaryConfig != null) {
+      let sentinel: Sentinel = CLOSE;
+      if (prev == null) { sentinel = OPEN; }
+
+      LOOP:
+      while (true) {
+        const sym: Sym = sentinel;
+        const width = 0;
+
+        while (!state.can(sym) && state !== this.root) {
+          state = state.failure!;
+        }
+        state = state.go(sym) ?? this.root;
+
+        if (!state.empty()) {
+          const keyword = state.value()!;
+          const length = keyword.length;
+          const end = (text.length) + width;
+          const begin = end - length;
+          push(begin, end, keyword);
+        }
+
+        switch (sentinel) {
+          case CLOSE: break LOOP;
+          case OPEN: sentinel = CLOSE; break;
+        }
+      }
     }
 
     // "" (empty) がありうるので、そのケースを対応
