@@ -7,7 +7,7 @@ export type Replacer = Record<string, string> | Map<string, string> | ReplaceFun
 export type AsyncableReplacer = Replacer | AsyncableReplaceFunc;
 export { Boundary } from './base.mts';
 export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match, StopFilter } from './base.mts';
-export { URLLikeStopFilter } from './filter.mts'
+export * from './filter/index.mts'
 
 export const handleReplacer = (detect: string, replacer: Replacer): string => {
   if (replacer instanceof Map) {

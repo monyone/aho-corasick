@@ -5,7 +5,7 @@ import { AbstractStreamGeneralAhoCorasick, type StopFilter } from "../base.mts";
 export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
 export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match, StopFilter } from "../base.mts";
-export { URLLikeStopFilter } from '../filter.mts'
+export * from '../filter/index.mts'
 
 export type ImperativeResult<T, K> = (T | K)[];
 export type ImperativeHandle<T, K> = {

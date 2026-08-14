@@ -1,7 +1,7 @@
-import { STOP_BEGIN, STOP_END, type Stop, type StopFilter } from "./base.mts";
+import { STOP_BEGIN, STOP_END, type Stop, type StopFilter } from "../base.mts";
 import Collector from "./collector.mts";
 
-export type { StopFilter } from "./base.mts";
+export type { StopFilter } from "../base.mts";
 
 const isWhitespace = (ch: string) => ch.length === 1 && /\s/.test(ch);
 const SCHEME = "http";
@@ -10,9 +10,9 @@ const SEPARATOR = "://";
 const SEPARATOR_BASE = SCHEME.length + 1;
 const BODY = SEPARATOR_BASE + SEPARATOR.length;
 
-export class URLLikeStopFilter implements StopFilter {
+export default class URLLikeStopFilter implements StopFilter {
   private zerolength: boolean = false;
-  private collector: Collector = new Collector(BODY + 1);
+  private collector: Collector = new Collector();
   private advance: number = 0;
   private steps: number = 0;
   private progress: number = 0;
