@@ -191,8 +191,8 @@ export abstract class AbstractStreamAhoCorasick<Node extends CRTPTrie<Sym, strin
         current.add(keyword);
       }
     }
-    this.dequeCapacity = this.maxSequenceLength + 1;
-    this.maintainLength = this.maxSequenceLength * 2;
+    this.dequeCapacity = this.maxSequenceLength + 1; /* +1 は安全用 */
+    this.maintainLength = Math.max(1, this.maxSequenceLength * 2); /* [] でも 1 とする */
 
     // build failure
     {
