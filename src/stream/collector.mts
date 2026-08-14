@@ -15,6 +15,9 @@ export default class Collector {
   }
 
   public feed(chunk: string) {
+    // 空文字を突っ込まれると無意味に capacity を消費するので、最低でも 1 文字以上とする
+    if (chunk.length <= 0) { return; }
+
     this.deque.addLast(chunk);
     this.remains += chunk.length;
     this.bound += chunk.length;
