@@ -353,7 +353,7 @@ export class AhoCorasick {
 
     let node = root;
     let prev: string | null = null;
-    for (let i = 0; i <= text.length; i++) {
+    for (let i = 0; i < text.length; i++) {
       const char = text[i];
       let sentinel: Sentinel | null = null;
       if (this.boundaryConfig != null) {
@@ -369,13 +369,6 @@ export class AhoCorasick {
         const keyword = this.trie.query(node);
         if (keyword != null) { return true; }
 
-        if (i === text.length - 1 && sentinel == null) {
-          sentinel = CLOSE;
-          i += 1;
-          continue LOOP;
-        } else if (i >= text.length) {
-          break LOOP;
-        }
         switch (sentinel) {
           case CLOSE: sentinel = OPEN; break;
           case OPEN: sentinel = null; break;
@@ -386,7 +379,26 @@ export class AhoCorasick {
       prev = char;
     }
 
-    return false;
+    if (this.boundaryConfig != null) {
+      let sentinel: Sentinel = CLOSE;
+      if (prev == null) { sentinel = OPEN; }
+
+      LOOP:
+      while (true) {
+        const sym: Sym = sentinel;
+        node = this.trie.go(node, sym);
+
+        const keyword = this.trie.query(node);
+        if (keyword != null) { return true; }
+
+        switch (sentinel) {
+          case CLOSE: break LOOP;
+          case OPEN: sentinel = CLOSE; break;
+        }
+      }
+    }
+
+    return this.trie.query(root) != null;
   }
 
   public matchInText(text: string): Match[] {

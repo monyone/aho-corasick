@@ -246,7 +246,7 @@ export class AhoCorasick {
 
     let state = this.root;
     let prev: string | null = null;
-    for (let i = 0; i <= text.length; i++) {
+    for (let i = 0; i < text.length; i++) {
       const char = text[i];
       let sentinel: Sentinel | null = null;
       if (this.boundaryConfig != null) {
@@ -282,7 +282,29 @@ export class AhoCorasick {
       prev = char;
     }
 
-    return false;
+    if (this.boundaryConfig != null) {
+      let sentinel: Sentinel = CLOSE;
+      if (prev == null) { sentinel = OPEN; }
+
+      LOOP:
+      while (true) {
+        const sym: Sym = sentinel;
+
+        while (!state.can(sym) && state !== this.root) {
+          state = state.failure!;
+        }
+        state = state.go(sym) ?? this.root;
+
+        if (!state.empty()) { return true; }
+
+        switch (sentinel) {
+          case CLOSE: break LOOP;
+          case OPEN: sentinel = CLOSE; break;
+        }
+      }
+    }
+
+    return !this.root.empty();
   }
 
   public matchInText(text: string): Match[] {
