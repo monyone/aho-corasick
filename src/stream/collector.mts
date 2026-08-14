@@ -1,4 +1,4 @@
-import Deque from "./deque.mts";
+import { type Deque, RingDeque, LinkedDeque } from "./deque.mts";
 
 export default class Collector {
   private deque: Deque<string>;
@@ -6,8 +6,12 @@ export default class Collector {
   private remains = 0;
   private bound = 0;
 
-  public constructor(capacity: number) {
-    this.deque = new Deque<string>(capacity);
+  public constructor(capacity?: number) {
+    if (capacity != null) {
+      this.deque = new RingDeque<string>(capacity);
+    } else {
+      this.deque = new LinkedDeque<string>();
+    }
   }
 
   public feed(chunk: string) {

@@ -1,5 +1,5 @@
 import { STOP_BEGIN, STOP_END, type Stop, type StopFilter } from "../base.mts";
-import Collector from "./collector.mts";
+import Collector from "../collector.mts";
 
 export type { StopFilter } from "../base.mts";
 

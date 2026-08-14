@@ -1,5 +1,5 @@
 import Collector from "./collector.mts";
-import Deque from "./deque.mts";
+import { type Deque, RingDeque } from "./deque.mts";
 import PersistentStack from "./stack.mts";
 
 export type Match = { begin: number, end: number, keyword: string };
@@ -159,7 +159,7 @@ export class CRTPSession<T, K, Trie extends CRTPTrie<T, K, Trie>> {
 
   public constructor(state: Trie, capacity: number) {
     this.state = state;
-    this.deque = new Deque(capacity);
+    this.deque = new RingDeque(capacity);
   }
 }
 
