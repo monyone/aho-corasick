@@ -17,9 +17,13 @@ export default class UrlLikeStopFilter implements StopFilter {
 
   public *write(chunk: string): Iterable<string | Stop> {
     this.collector.feed(chunk);
+
+    const result: (string | Stop)[] = [];
+    const cb = (sym: string | Stop) => { result.push(sym); }
     for (let i = 0; i < chunk.length; i++) {
-      yield* this.step(chunk[i]);
+      this.step(chunk[i], cb);
     }
+    yield* result;
 
     if (this.advance - this.steps > 0) {
       yield* this.collector.take(this.advance - this.steps);
@@ -40,7 +44,7 @@ export default class UrlLikeStopFilter implements StopFilter {
     this.detected = false;
   }
 
-  public *step(ch: string): Iterable<string | Stop>{
+  public step(ch: string, cb: (value: string | Stop) => void): void {
     if (this.progress < SCHEME.length) {
       if (ch === SCHEME[this.progress]) {
         this.progress++;
@@ -49,7 +53,7 @@ export default class UrlLikeStopFilter implements StopFilter {
       } else {
         if (this.progress > 0) {
           this.progress = this.steps = 0;
-          yield* this.step(ch);
+          return this.step(ch, cb);
         } else {
           this.progress = this.steps = 0;
           this.advance++;
@@ -66,7 +70,7 @@ export default class UrlLikeStopFilter implements StopFilter {
         this.advance++;
       } else {
         this.progress = this.steps = 0;
-        yield* this.step(ch);
+        return this.step(ch, cb);
       }
     } else if (this.progress < BODY) {
       if (ch === SEPARATOR[this.progress - SEPARATOR_BASE]) {
@@ -75,32 +79,32 @@ export default class UrlLikeStopFilter implements StopFilter {
         this.advance++;
       } else {
         this.progress = this.steps = 0;
-        yield* this.step(ch);
+        return this.step(ch, cb);
       }
     } else if (this.progress === BODY) {
       if (!isWhitespace(ch)) {
         this.advance++;
         this.progress++;
         this.steps++;
-        yield* this.collector.take((this.advance - this.steps));
-        yield STOP_BEGIN;
+        for (const ch of this.collector.take((this.advance - this.steps))) { cb(ch); }
+        cb(STOP_BEGIN);
         this.collector.reposition((this.advance - this.steps));
         this.advance = this.steps;
         this.detected = true;
       } else {
         this.progress = this.steps = 0;
-        yield* this.step(ch);
+        return this.step(ch, cb);
       }
     } else if (this.progress > BODY) {
       if (!isWhitespace(ch)) {
         this.advance++;
       } else {
-        yield* this.collector.take(this.advance);
-        yield STOP_END;
+        for (const ch of this.collector.take((this.advance))) { cb(ch); }
+        cb(STOP_END);
         this.collector.reposition(this.advance);
         this.progress = this.steps = this.advance = 0;
         this.detected = false;
-        yield* this.step(ch);
+        return this.step(ch, cb);
       }
     }
   }

@@ -31,7 +31,7 @@ export default class Collector {
     this.bound -= position;
   }
 
-  public consume(length: number,consumeFn: (elem: string) => void): void {
+  public consume(length: number, consumeFn: (elem: string) => void): void {
     length = Math.min(length, this.remains);
 
     while (length > 0 && !this.deque.empty()) {
@@ -63,65 +63,13 @@ export default class Collector {
     }
   }
 
-  /** @deprecated */
   public take(length: number): string[] {
-    const collect = [];
-    length = Math.min(length, this.remains);
-
-    while (length > 0 && !this.deque.empty()) {
-      const chunk = this.deque.pollFirst()!;
-      const avail = chunk.length - this.consumed;
-
-      if (avail >= length) {
-        const end = this.consumed + length;
-        if (this.consumed === 0 && end === chunk.length) {
-          collect.push(chunk);
-        } else {
-          collect.push(chunk.slice(this.consumed, end));
-        }
-
-        if (end === chunk.length) {
-          this.consumed = 0
-        } else {
-          this.deque.addFirst(chunk);
-          this.consumed += length;
-        }
-        this.remains -= length;
-        length = 0;
-      } else {
-        collect.push(chunk.slice(this.consumed));
-        this.consumed = 0;
-        this.remains -= avail;
-        length -= avail;
-      }
-    }
-
+    const collect: string[] = [];
+    this.consume(length, (elem) => { collect.push(elem); });
     return collect;
   }
 
   public skip(length: number): void {
-    length = Math.min(length, this.remains);
-
-    while (length > 0 && !this.deque.empty()) {
-      const chunk = this.deque.pollFirst()!;
-      const avail = chunk.length - this.consumed;
-
-      if (avail >= length) {
-        const end = this.consumed + length;
-
-        if (end === chunk.length) {
-          this.consumed = 0
-        } else {
-          this.deque.addFirst(chunk);
-          this.consumed += length;
-        }
-        this.remains -= length;
-        length = 0;
-      } else {
-        this.consumed = 0;
-        this.remains -= avail;
-        length -= avail;
-      }
-    }
+    this.consume(length, () => {});
   }
 }
