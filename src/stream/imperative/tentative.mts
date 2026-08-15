@@ -2,6 +2,7 @@ import { type Replacer, type AsyncableReplacer,handleAsyncableReplacer, handleRe
 import Collector from "../collector.mts";
 import { AbstractStreamTentativeAhoCorasick, type StopFilter } from "../base.mts";
 import type { AsyncImperativeResult, ImperativeResult } from "./normal.mts";
+import { AsyncableStringBuffer, StringBuffer } from "../stringbuffer.mts";
 
 export { Replacer, AsyncableReplacer } from "../stream.mts";
 export { Boundary } from "../base.mts";
@@ -40,20 +41,22 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
   public replaceSync(replacer: Replacer, stop?: StopFilter): ImperativeWithTentativeHandle<string, string, string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
+    const identity = (text: string) => text;
+    const replace = (keyword: string) => handleReplacer(keyword, replacer);
 
     const write = (chunk: string): ImperativeWithTentativeResult<string, string, string> => {
-      const confirmed : ImperativeResult<string, string> = [];
-      const pushT = (chunk: string) => { confirmed.push(chunk); }
-      const pushK = (keyword: string) => { confirmed.push(handleReplacer(keyword, replacer)); }
-      this.processTextSync(session, chunk, collector,pushT, pushK, stop);
-      return { confirmed , tentative: session.state.tentative! }
+      const confirmed = new StringBuffer<string, string>();
+      const pushT = confirmed.push.bind(confirmed, identity);
+      const pushK = confirmed.push.bind(confirmed, replace);
+      this.processTextSync(session, chunk, collector, pushT, pushK, stop);
+      return { confirmed: confirmed.data() , tentative: session.state.tentative! }
     };
     const end = (): ImperativeResult<string, string> => {
-      const confirmed : ImperativeResult<string, string> = [];
-      const pushT = (chunk: string) => { confirmed.push(chunk); }
-      const pushK = (keyword: string) => { confirmed.push(handleReplacer(keyword, replacer)); }
+      const confirmed = new StringBuffer<string, string>();
+      const pushT = confirmed.push.bind(confirmed, identity);
+      const pushK = confirmed.push.bind(confirmed, replace);
       this.cleanupTextSync(session, collector, pushT, pushK, stop);
-      return confirmed;
+      return confirmed.data();
     };
     return ImperativeWithTentativeHandle.from<string, string, string>(write, end);
   }
@@ -61,20 +64,22 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
   public replaceAsync(replacer: AsyncableReplacer, stop?: StopFilter): AsyncImperativeWithTentativeHandle<string, string, string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
+    const identity = (text: string) => text;
+    const replace = async (keyword: string) => await handleAsyncableReplacer(keyword, replacer);
 
     const write = async (chunk: string): AsyncImperativeWithTentativeResult<string, string, string> => {
-      const confirmed : ImperativeResult<string, string> = [];
-      const pushT = (chunk: string) => { confirmed.push(chunk); }
-      const pushK = async (keyword: string) => { confirmed.push(await handleAsyncableReplacer(keyword, replacer)); }
+      const confirmed = new AsyncableStringBuffer<string, string>();
+      const pushT = confirmed.push.bind(confirmed, identity);
+      const pushK = confirmed.push.bind(confirmed, replace);
       await this.processTextAsync(session, chunk, collector, pushT, pushK, stop);
-      return { confirmed, tentative: session.state.tentative! }
+      return { confirmed: confirmed.data(), tentative: session.state.tentative! }
     };
     const end = async (): AsyncImperativeResult<string, string> => {
-      const confirmed : ImperativeResult<string, string> = [];
-      const pushT = (chunk: string) => { confirmed.push(chunk); }
-      const pushK = async (keyword: string) => { confirmed.push(await handleAsyncableReplacer(keyword, replacer)); }
+      const confirmed = new AsyncableStringBuffer<string, string>();
+      const pushT = confirmed.push.bind(confirmed, identity);
+      const pushK = confirmed.push.bind(confirmed, replace);
       await this.cleanupTextAsync(session, collector, pushT, pushK, stop);
-      return confirmed;
+      return confirmed.data();
     };
     return AsyncImperativeWithTentativeHandle.from<string, string, string>(write, end);
   }
@@ -84,18 +89,18 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
     const collector = new Collector(this.maintainLength);
 
     const write = (chunk: string): ImperativeWithTentativeResult<T, K, U> => {
-      const confirmed : ImperativeResult<T, K> = [];
-      const pushT = (chunk: string) => { confirmed.push(normal(chunk)); }
-      const pushK = (keyword: string) => { confirmed.push(target(keyword)); }
+      const confirmed = new StringBuffer<T, K>();
+      const pushT = confirmed.push.bind(confirmed, normal);
+      const pushK = confirmed.push.bind(confirmed, target);
       this.processTextSync(session, chunk, collector, pushT, pushK, stop);
-      return { confirmed , tentative: tentative(session.state.tentative!) }
+      return { confirmed: confirmed.data() , tentative: tentative(session.state.tentative!) }
     };
     const end = (): ImperativeResult<T, K> => {
-      const confirmed : ImperativeResult<T, K> = [];
-      const pushT = (chunk: string) => { confirmed.push(normal(chunk)); }
-      const pushK = (keyword: string) => { confirmed.push(target(keyword)); }
+      const confirmed = new StringBuffer<T, K>();
+      const pushT = confirmed.push.bind(confirmed, normal);
+      const pushK = confirmed.push.bind(confirmed, target);
       this.cleanupTextSync(session, collector, pushT, pushK, stop);
-      return confirmed;
+      return confirmed.data();
     };
     return ImperativeWithTentativeHandle.from<T, K, U>(write, end);
   }
@@ -105,18 +110,18 @@ export class AhoCorasick extends AbstractStreamTentativeAhoCorasick {
     const collector = new Collector(this.maintainLength);
 
     const write = async (chunk: string): AsyncImperativeWithTentativeResult<T, K, U> => {
-      const confirmed : ImperativeResult<T, K> = [];
-      const pushT = (chunk: string) => { confirmed.push(normal(chunk)); }
-      const pushK = async (keyword: string) => { confirmed.push(await target(keyword)); }
+      const confirmed = new AsyncableStringBuffer<T, K>();
+      const pushT = confirmed.push.bind(confirmed, normal);
+      const pushK = confirmed.push.bind(confirmed, target);
       await this.processTextAsync(session, chunk, collector, pushT, pushK, stop);
-      return { confirmed , tentative: tentative(session.state.tentative!) }
+      return { confirmed: confirmed.data(), tentative: tentative(session.state.tentative!) }
     };
     const end = async (): AsyncImperativeResult<T, K> => {
-      const confirmed : ImperativeResult<T, K> = [];
-      const pushT = (chunk: string) => { confirmed.push(normal(chunk)); }
-      const pushK = async (keyword: string) => { confirmed.push(await target(keyword)); }
+      const confirmed = new AsyncableStringBuffer<T, K>();
+      const pushT = confirmed.push.bind(confirmed, normal);
+      const pushK = confirmed.push.bind(confirmed, target);
       await this.cleanupTextAsync(session, collector, pushT, pushK, stop);
-      return confirmed;
+      return confirmed.data();
     };
     return AsyncImperativeWithTentativeHandle.from<T, K, U>(write, end);
   }

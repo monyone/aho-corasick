@@ -1,6 +1,7 @@
 import Collector from "../collector.mts";
 import { AbstractStreamOptimisticAhoCorasick, type StopFilter } from "../base.mts";
 import type { ImperativeResult } from "./normal.mts";
+import { StringBuffer } from "../stringbuffer.mts";
 
 export { Boundary } from "../base.mts";
 export type { BoundaryEntry, BoundaryFunc, BoundaryTarget, Match, StopFilter } from "../base.mts";
@@ -28,18 +29,18 @@ export class AhoCorasick<T, K> extends AbstractStreamOptimisticAhoCorasick<T, K>
     const collector = new Collector(this.maintainLength);
 
     const write = (chunk: string): ImperativeWithOptimisticResult<T, K> => {
-      const confirmed : ImperativeResult<T, K> = [];
-      const pushT = (chunk: string) => { confirmed.push(this.normal(chunk)); }
-      const pushK = (keyword: string) => { confirmed.push(this.target(keyword)); }
+      const confirmed = new StringBuffer<T, K>();
+      const pushT = confirmed.push.bind(confirmed, this.normal);
+      const pushK = confirmed.push.bind(confirmed, this.target);
       this.processTextSync(session, chunk, collector, pushT, pushK, stop);
-      return { confirmed , optimistic: session.state.optimistic! }
+      return { confirmed: confirmed.data() , optimistic: session.state.optimistic! }
     };
     const end = (): ImperativeResult<T, K> => {
-      const confirmed : ImperativeResult<T, K> = [];
-      const pushT = (chunk: string) => { confirmed.push(this.normal(chunk)); }
-      const pushK = (keyword: string) => { confirmed.push(this.target(keyword)); }
+      const confirmed = new StringBuffer<T, K>();
+      const pushT = confirmed.push.bind(confirmed, this.normal);
+      const pushK = confirmed.push.bind(confirmed, this.target);
       this.cleanupTextSync(session, collector, pushT, pushK, stop);
-      return confirmed;
+      return confirmed.data();
     };
     return ImperativeWithOptimisticHandle.from<T, K>(write, end);
   }

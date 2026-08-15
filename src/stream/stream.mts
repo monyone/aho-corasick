@@ -1,5 +1,6 @@
 import { AbstractStreamGeneralAhoCorasick, isPromiseLike, type StopFilter } from "./base.mts";
 import Collector from "./collector.mts";
+import { AsyncableStringBuffer, StringBuffer } from "./stringbuffer.mts";
 
 type ReplaceFunc = ((detect: string) => (string | false));
 type AsyncableReplaceFunc = ((detect: string) => PromiseLike<ReturnType<ReplaceFunc>> | ReturnType<ReplaceFunc>);
@@ -75,80 +76,88 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public *iterableReplaceSync(iterable: Iterable<string>, replacer: Replacer, stop?: StopFilter): Iterable<string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
+    const identity = (text: string) => text;
+    const replace = (keyword: string) => handleReplacer(keyword, replacer);
 
     for (const text of iterable) {
-      const output: string[] = [];
-      const pushT = (chunk: string) => { output.push(chunk); }
-      const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
+      const output = new StringBuffer<string, string>();
+      const pushT = output.push.bind(output, identity);
+      const pushK = output.push.bind(output, replace);
       this.processTextSync(session, text, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
     {
-      const output: string[] = [];
-      const pushT = (chunk: string) => { output.push(chunk); }
-      const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
+      const output = new StringBuffer<string, string>();
+      const pushT = output.push.bind(output, identity);
+      const pushK = output.push.bind(output, replace);
       this.cleanupTextSync(session, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
   }
 
   public async *iterableReplaceAsync(iterable: Iterable<string>, replacer: AsyncableReplacer, stop?: StopFilter): AsyncIterable<string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
+    const identity = (text: string) => text;
+    const replace = async (keyword: string) => await handleAsyncableReplacer(keyword, replacer);
 
     for (const text of iterable) {
-      const output: string[] = [];
-      const pushT = (chunk: string) => { output.push(chunk); }
-      const pushK = async (chunk: string) => { output.push(await handleAsyncableReplacer(chunk, replacer)); }
+      const output = new AsyncableStringBuffer<string, string>();
+      const pushT = output.push.bind(output, identity);
+      const pushK = output.push.bind(output, replace);
       await this.processTextAsync(session, text, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
     {
-      const output: string[] = [];
-      const pushT = (chunk: string) => { output.push(chunk); }
-      const pushK = async (chunk: string) => { output.push(await handleAsyncableReplacer(chunk, replacer)); }
+      const output = new AsyncableStringBuffer<string, string>();
+      const pushT = output.push.bind(output, identity);
+      const pushK = output.push.bind(output, replace);
       await this.cleanupTextAsync(session, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
   }
 
   public async *asyncIterableReplaceSync(iterable: AsyncIterable<string>, replacer: Replacer, stop?: StopFilter): AsyncIterable<string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
+    const identity = (text: string) => text;
+    const replace = (keyword: string) => handleReplacer(keyword, replacer);
 
     for await (const text of iterable) {
-      const output: string[] = [];
-      const pushT = (chunk: string) => { output.push(chunk); }
-      const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
+      const output = new StringBuffer<string, string>();
+      const pushT = output.push.bind(output, identity);
+      const pushK = output.push.bind(output, replace);
       this.processTextSync(session, text, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
     {
-      const output: string[] = [];
-      const pushT = (chunk: string) => { output.push(chunk); }
-      const pushK = (chunk: string) => { output.push(handleReplacer(chunk, replacer)); }
+      const output = new StringBuffer<string, string>();
+      const pushT = output.push.bind(output, identity);
+      const pushK = output.push.bind(output, replace);
       this.cleanupTextSync(session, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
   }
 
   public async *asyncIterableReplaceAsync(iterable: AsyncIterable<string>, replacer: AsyncableReplacer, stop?: StopFilter): AsyncIterable<string> {
     const session = this.makeSession(this.dequeCapacity);
     const collector = new Collector(this.maintainLength);
+    const identity = (text: string) => text;
+    const replace = async (keyword: string) => await handleAsyncableReplacer(keyword, replacer);
 
     for await (const text of iterable) {
-      const output: string[] = [];
-      const pushT = (chunk: string) => { output.push(chunk); }
-      const pushK = async (chunk: string) => { output.push(await handleAsyncableReplacer(chunk, replacer)); }
+      const output = new AsyncableStringBuffer<string, string>();
+      const pushT = output.push.bind(output, identity);
+      const pushK = output.push.bind(output, replace);
       await this.processTextAsync(session, text, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
     {
-      const output: string[] = [];
-      const pushT = (chunk: string) => { output.push(chunk); }
-      const pushK = async (chunk: string) => { output.push(await handleAsyncableReplacer(chunk, replacer)); }
+      const output = new AsyncableStringBuffer<string, string>();
+      const pushT = output.push.bind(output, identity);
+      const pushK = output.push.bind(output, replace);
       await this.cleanupTextAsync(session, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
   }
 
@@ -157,18 +166,18 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     const collector = new Collector(this.maintainLength);
 
     for (const text of iterable) {
-      const output: (T | K)[] = [];
-      const pushT = (chunk: string) => { output.push(normal(chunk)); }
-      const pushK = (chunk: string) => { output.push(target(chunk)); }
+      const output = new StringBuffer<T, K>();
+      const pushT = output.push.bind(output, normal);
+      const pushK = output.push.bind(output, target);
       this.processTextSync(session, text, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
     {
-      const output: (T | K)[] = [];
-      const pushT = (chunk: string) => { output.push(normal(chunk)); }
-      const pushK = (chunk: string) => { output.push(target(chunk)); }
+      const output = new StringBuffer<T, K>();
+      const pushT = output.push.bind(output, normal);
+      const pushK = output.push.bind(output, target);
       this.cleanupTextSync(session, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
   }
 
@@ -177,18 +186,18 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     const collector = new Collector(this.maintainLength);
 
     for (const text of iterable) {
-      const output: (T | K)[] = [];
-      const pushT = (chunk: string) => { output.push(normal(chunk)); }
-      const pushK = async (chunk: string) => { output.push(await target(chunk)); }
+      const output = new AsyncableStringBuffer<T, K>();
+      const pushT = output.push.bind(output, normal);
+      const pushK = output.push.bind(output, target);
       await this.processTextAsync(session, text, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
     {
-      const output: (T | K)[] = [];
-      const pushT = (chunk: string) => { output.push(normal(chunk)); }
-      const pushK = async (chunk: string) => { output.push(await target(chunk)); }
+      const output = new AsyncableStringBuffer<T, K>();
+      const pushT = output.push.bind(output, normal);
+      const pushK = output.push.bind(output, target);
       await this.cleanupTextAsync(session, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
   }
 
@@ -197,18 +206,18 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     const collector = new Collector(this.maintainLength);
 
     for await (const text of iterable) {
-      const output: (T | K)[] = [];
-      const pushT = (chunk: string) => { output.push(normal(chunk)); }
-      const pushK = (chunk: string) => { output.push(target(chunk)); }
+      const output = new StringBuffer<T, K>();
+      const pushT = output.push.bind(output, normal);
+      const pushK = output.push.bind(output, target);
       this.processTextSync(session, text, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
     {
-      const output: (T | K)[] = [];
-      const pushT = (chunk: string) => { output.push(normal(chunk)); }
-      const pushK = (chunk: string) => { output.push(target(chunk)); }
+      const output = new StringBuffer<T, K>();
+      const pushT = output.push.bind(output, normal);
+      const pushK = output.push.bind(output, target);
       this.cleanupTextSync(session, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
   }
 
@@ -217,18 +226,18 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
     const collector = new Collector(this.maintainLength);
 
     for await (const text of iterable) {
-      const output: (T | K)[] = [];
-      const pushT = (chunk: string) => { output.push(normal(chunk)); }
-      const pushK = async (chunk: string) => { output.push(await target(chunk)); }
+      const output = new AsyncableStringBuffer<T, K>();
+      const pushT = output.push.bind(output, normal);
+      const pushK = output.push.bind(output, target);
       await this.processTextAsync(session, text, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
     {
-      const output: (T | K)[] = [];
-      const pushT = (chunk: string) => { output.push(normal(chunk)); }
-      const pushK = async (chunk: string) => { output.push(await target(chunk)); }
+      const output = new AsyncableStringBuffer<T, K>();
+      const pushT = output.push.bind(output, normal);
+      const pushK = output.push.bind(output, target);
       await this.cleanupTextAsync(session, collector, pushT, pushK, stop);
-      yield* output;
+      yield* output.data();
     }
   }
 
