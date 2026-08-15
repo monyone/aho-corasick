@@ -15,7 +15,7 @@ export class StringBuffer<T, K> {
 export class AsyncableStringBuffer<T, K> {
   private values: (T | K)[] = [];
 
-  public async push( operation: (text: string) => T | K | PromiseLike<K>, chunk: string): Promise<void>{
+  public async push(operation: (text: string) => T | K | PromiseLike<K>, chunk: string): Promise<void>{
     const data = operation(chunk);
     this.values.push(!isPromiseLike(data) ? data : await data);
   }
