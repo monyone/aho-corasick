@@ -9,16 +9,11 @@ const SEPARATOR_BASE = SCHEME.length + 1;
 const BODY = SEPARATOR_BASE + SEPARATOR.length;
 
 export default class UrlLikeStopFilter implements StopFilter {
-  private zerolength: boolean = false;
   private collector: Collector = new Collector();
   private advance: number = 0;
   private steps: number = 0;
   private progress: number = 0;
   private detected: boolean = false;
-
-  public constructor(zerolength = false) {
-    this.zerolength = zerolength;
-  }
 
   public *write(chunk: string): Iterable<string | Stop> {
     this.collector.feed(chunk);
@@ -75,20 +70,9 @@ export default class UrlLikeStopFilter implements StopFilter {
       }
     } else if (this.progress < BODY) {
       if (ch === SEPARATOR[this.progress - SEPARATOR_BASE]) {
-        if (this.progress === BODY - 1 && this.zerolength) {
-          this.progress++
-          this.steps++;
-          this.advance++;
-          yield* this.collector.take((this.advance - this.steps));
-          yield STOP_BEGIN;
-          this.collector.reposition((this.advance - this.steps));
-          this.advance = this.steps;
-          this.detected = true;
-        } else {
-          this.steps++;
-          this.progress++;
-          this.advance++;
-        }
+        this.steps++;
+        this.progress++;
+        this.advance++;
       } else {
         this.progress = this.steps = 0;
         yield* this.step(ch);
@@ -97,21 +81,12 @@ export default class UrlLikeStopFilter implements StopFilter {
       if (!isWhitespace(ch)) {
         this.advance++;
         this.progress++;
-        if (!this.zerolength) {
-          this.steps++;
-          yield* this.collector.take((this.advance - this.steps));
-          yield STOP_BEGIN;
-          this.collector.reposition((this.advance - this.steps));
-          this.advance = this.steps;
-          this.detected = true;
-        }
-      } else if (this.detected) {
-        yield* this.collector.take(this.advance);
-        yield STOP_END;
-        this.collector.reposition(this.advance);
-        this.progress = this.steps = this.advance = 0;
-        this.detected = false;
-        yield* this.step(ch);
+        this.steps++;
+        yield* this.collector.take((this.advance - this.steps));
+        yield STOP_BEGIN;
+        this.collector.reposition((this.advance - this.steps));
+        this.advance = this.steps;
+        this.detected = true;
       } else {
         this.progress = this.steps = 0;
         yield* this.step(ch);
