@@ -35,7 +35,7 @@ export default class UrlLikeStopFilter implements StopFilter {
 
   public end(): Iterable<string | Stop> {
     const concat = new Concat<string | Stop>();
-    concat.push(Array.from(this.collector.take(this.advance)));
+    concat.push(this.collector.take(this.advance));
     this.collector.reposition(this.advance);
     if (this.detected) { concat.push(STOP_END); }
     this.progress = 0;
