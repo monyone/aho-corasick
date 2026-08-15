@@ -1,4 +1,5 @@
 import { STOP_BEGIN, STOP_END, type Stop, type StopFilter } from "../base.mts";
+import Concat from "./concat.mts";
 import Collector from "../collector.mts";
 
 const isWhitespace = (ch: string) => ch.length === 1 && /\s/.test(ch);
@@ -15,36 +16,36 @@ export default class UrlLikeStopFilter implements StopFilter {
   private progress: number = 0;
   private detected: boolean = false;
 
-  public *write(chunk: string): Iterable<string | Stop> {
+  public write(chunk: string): Iterable<string | Stop> {
     this.collector.feed(chunk);
 
-    const result: (string | Stop)[] = [];
-    const cb = (sym: string | Stop) => { result.push(sym); }
+    const concat = new Concat<string | Stop>();
     for (let i = 0; i < chunk.length; i++) {
-      this.step(chunk[i], cb);
+      this.step(chunk[i], concat);
     }
-    yield* result;
 
     if (this.advance - this.steps > 0) {
-      yield* this.collector.take(this.advance - this.steps);
+      concat.push(this.collector.take(this.advance - this.steps));
       this.collector.reposition(this.advance - this.steps);
       this.advance = this.steps;
     }
+
+    return concat;
   }
 
-  public *end(): Iterable<string | Stop> {
-    yield* this.collector.take(this.advance);
+  public end(): Iterable<string | Stop> {
+    const concat = new Concat<string | Stop>();
+    concat.push(Array.from(this.collector.take(this.advance)));
     this.collector.reposition(this.advance);
-    if (this.detected) {
-      yield STOP_END;
-    }
+    if (this.detected) { concat.push(STOP_END); }
     this.progress = 0;
     this.steps = 0;
     this.advance = 0;
     this.detected = false;
+    return concat;
   }
 
-  public step(ch: string, cb: (value: string | Stop) => void): void {
+  public step(ch: string, out: Concat<string | Stop>): void {
     if (this.progress < SCHEME.length) {
       if (ch === SCHEME[this.progress]) {
         this.progress++;
@@ -53,7 +54,7 @@ export default class UrlLikeStopFilter implements StopFilter {
       } else {
         if (this.progress > 0) {
           this.progress = this.steps = 0;
-          return this.step(ch, cb);
+          return this.step(ch, out);
         } else {
           this.progress = this.steps = 0;
           this.advance++;
@@ -70,7 +71,7 @@ export default class UrlLikeStopFilter implements StopFilter {
         this.advance++;
       } else {
         this.progress = this.steps = 0;
-        return this.step(ch, cb);
+        return this.step(ch, out);
       }
     } else if (this.progress < BODY) {
       if (ch === SEPARATOR[this.progress - SEPARATOR_BASE]) {
@@ -79,32 +80,32 @@ export default class UrlLikeStopFilter implements StopFilter {
         this.advance++;
       } else {
         this.progress = this.steps = 0;
-        return this.step(ch, cb);
+        return this.step(ch, out);
       }
     } else if (this.progress === BODY) {
       if (!isWhitespace(ch)) {
         this.advance++;
         this.progress++;
         this.steps++;
-        for (const ch of this.collector.take((this.advance - this.steps))) { cb(ch); }
-        cb(STOP_BEGIN);
+        out.push(this.collector.take((this.advance - this.steps)));
+        out.push(STOP_BEGIN);
         this.collector.reposition((this.advance - this.steps));
         this.advance = this.steps;
         this.detected = true;
       } else {
         this.progress = this.steps = 0;
-        return this.step(ch, cb);
+        return this.step(ch, out);
       }
     } else if (this.progress > BODY) {
       if (!isWhitespace(ch)) {
         this.advance++;
       } else {
-        for (const ch of this.collector.take((this.advance))) { cb(ch); }
-        cb(STOP_END);
+        out.push(this.collector.take((this.advance)));
+        out.push(STOP_END);
         this.collector.reposition(this.advance);
         this.progress = this.steps = this.advance = 0;
         this.detected = false;
-        return this.step(ch, cb);
+        return this.step(ch, out);
       }
     }
   }
