@@ -58,7 +58,7 @@ export const Replacer = {
       return handleReplacer(str, replacer);
     };
   },
-} as const satisfies Record<string, (...args: any[]) => Replacer>;
+} as const satisfies Record<string, (...args: never[]) => Replacer>;
 
 export const AsyncableReplacer = {
   ... Replacer,
@@ -70,7 +70,7 @@ export const AsyncableReplacer = {
       return handleAsyncableReplacer(str, replacer);
     };
   },
-} as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
+} as const satisfies Record<string, (...args: never[]) => AsyncableReplacer>;
 
 export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
   public *iterableReplaceSync(iterable: Iterable<string>, replacer: Replacer, stop?: StopFilter): Iterable<string> {

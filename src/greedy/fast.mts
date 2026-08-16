@@ -54,7 +54,7 @@ export const Replacer = {
       return handleReplacer(str, replacer);
     };
   },
-} as const satisfies Record<string, (...args: any[]) => Replacer>;
+} as const satisfies Record<string, (...args: never[]) => Replacer>;
 
 export const AsyncableReplacer = {
   ... Replacer,
@@ -66,7 +66,7 @@ export const AsyncableReplacer = {
       return handleAsyncableReplacer(str, replacer);
     };
   },
-} as const satisfies Record<string, (...args: any[]) => AsyncableReplacer>;
+} as const satisfies Record<string, (...args: never[]) => AsyncableReplacer>;
 
 export type BoundaryEntry = { target: BoundaryTarget, boundary: BoundaryFunc };
 const isAsciiChars = (
@@ -103,7 +103,7 @@ export const Boundary = {
     const boundary = (left: string, right: string) => !(isAsciiChar(left) && isAsciiChar(right));
     return { target, boundary };
   },
-} as const satisfies Record<string, (... args: any[]) => BoundaryEntry>;
+} as const satisfies Record<string, (...args: never[]) => BoundaryEntry>;
 
 const OPEN: unique symbol = Symbol();
 const CLOSE: unique symbol = Symbol();

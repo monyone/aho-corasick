@@ -44,7 +44,7 @@ export const Boundary = {
     const boundary = (left: string, right: string) => !(isAsciiChar(left) && isAsciiChar(right));
     return { target, boundary };
   },
-} as const satisfies Record<string, (... args: any[]) => BoundaryEntry>;
+} as const satisfies Record<string, (...args: never[]) => BoundaryEntry>;
 
 const OPEN: unique symbol = Symbol();
 const CLOSE: unique symbol = Symbol();
