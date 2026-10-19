@@ -45,6 +45,7 @@ class Output<K> {
 }
 
 class DoubleArray {
+  private static MAX_ATTEMPTS = 64;
   private code: Map<string, number>;
   private head = 1;
   private tail = 1;
@@ -81,22 +82,39 @@ class DoubleArray {
     {
       let top = 0;
       const queue: [number, Trie][] = [[0, root]];
-      let offset_hint = this.head;
+      let slot_hint = this.head;
       while (top < queue.length) {
         const [node, trie] = queue[top++];
         const leafs = Array.from(trie.keys());
+        if (leafs.length === 0) {
+          this.base[node] = 0;
+          continue;
+        }
         const max_leaf = leafs.reduce((a, b) => Math.max(a, b), 0);
+        const min_leaf = leafs.reduce((a, b) => Math.min(a, b), Number.POSITIVE_INFINITY);
 
-        let offset = offset_hint;
-        let free_count = 1;
+        let slot = slot_hint;
+        let offset = slot - min_leaf;
+        let continuous = true;
         LOOP:
         while (true) {
+          const fails = -(this.failure[slot] + 1);
+          if (slot < (this.check.length - 1) && fails >= DoubleArray.MAX_ATTEMPTS) {
+            slot = -(this.check[slot] + 1);
+            offset = slot - min_leaf;
+            // register hint
+            if (continuous) { slot_hint = slot; }
+            continue LOOP;
+          }
+          continuous = false;
+
           for (const leaf of leafs) {
             const next = offset + leaf;
             if (next < this.check.length && this.check[next] >= 0) {
               // we must keep empty node in last element, loop must be finite
-              offset = -(this.check[offset] + 1);
-              free_count += 1;
+              this.failure[slot] -= 1; // increment failed count
+              slot = -(this.check[slot] + 1);
+              offset = slot - min_leaf;
               continue LOOP;
             }
           }
@@ -106,10 +124,6 @@ class DoubleArray {
 
         // register node
         this.base[node] = offset - node;
-        // register hint (20 = 95% filled)
-        if (free_count * 20 <= (offset - offset_hint)) {
-          offset_hint = offset;
-        }
         // reserve node
         const max = offset + max_leaf + 1 /* keep empty node */;
         for (let i = this.base.length; i <= max; i++) {
@@ -131,6 +145,7 @@ class DoubleArray {
 
           if (this.head === next) { this.head = free_next; }
           if (this.tail === next) { this.tail = free_prev; }
+          if (slot_hint === next) { slot_hint = free_next; }
 
           this.base[free_next] = this.base[next];
           this.check[free_prev] = this.check[next];
