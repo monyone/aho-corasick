@@ -23,6 +23,27 @@ class Trie {
   }
 }
 
+class Output<K> {
+  private readonly value: K;
+  private parent: Output<K> | null = null;
+
+  public constructor(value: K) {
+    this.value = value;
+  }
+
+  public inherit(link: Output<K> | null): void {
+    this.parent = link;
+  }
+
+  public output(): K[] {
+    const outputs = [];
+    for (let o: Output<K> | null = this; o != null; o = o.parent) {
+      outputs.push(o.value);
+    }
+    return outputs;
+  }
+}
+
 class DoubleArray {
   private code: Map<string, number>;
   private head = 1;
@@ -30,7 +51,7 @@ class DoubleArray {
   private base: number[] = [0, -2];
   private check: number[] = [0, -2];
   private failure: number[] = [-1, -1];
-  private keywords: (string[] | null)[] = [null, null];
+  private keywords: (Output<string> | null)[] = [null, null];
 
   public constructor(keywords: string[]) {
     const set = new Set<string>();
@@ -131,10 +152,7 @@ class DoubleArray {
           node += this.base[node] + this.code.get(keyword[i])!;
         }
 
-        if (this.keywords[node] == null) {
-          this.keywords[node] = [];
-        }
-        this.keywords[node]!.push(keyword);
+        this.keywords[node] = new Output<string>(keyword);
       }
     }
     // Build Failure
@@ -154,13 +172,12 @@ class DoubleArray {
           const next = failure < 0 ? -1 : (failure + this.base[failure] + leaf);
           this.failure[node] = next < 0 ? 0 : this.check[next] !== failure ? 0 : next;
 
-          const inherits = this.keywords[this.failure[node]] ?? [];
-          if (inherits.length > 0) {
-            if (this.keywords[node] == null) {
-              this.keywords[node] = [];
-            }
-            for (const keyword of inherits) {
-              this.keywords[node].push(keyword);
+          const inherit = this.keywords[this.failure[node]] ?? null;
+          if (inherit != null) {
+            if (this.keywords[node] != null) {
+              this.keywords[node].inherit(inherit);
+            } else {
+              this.keywords[node] = inherit;
             }
           }
 
@@ -182,8 +199,12 @@ class DoubleArray {
     return Math.max(node, 0);
   }
 
+  public has(node: number): boolean {
+    return this.keywords[node] != null;
+  }
+
   public query(node: number): string[] {
-    return this.keywords[node] ?? [];
+    return this.keywords[node]?.output() ?? [];
   }
 }
 
@@ -197,11 +218,11 @@ export class AhoCorasick {
   public hasKeywordInText(text: string): boolean {
     let node = 0;
     for (let i = 0; i < text.length; i++) {
-      if (this.trie.query(node).length > 0) { return true; }
+      if (this.trie.has(node)) { return true; }
       node = this.trie.go(node, text[i]);
     }
 
-    return this.trie.query(node).length > 0;
+    return this.trie.has(node);
   }
 
   public matchInText(text: string): { begin: number, end: number, keyword: string }[] {
