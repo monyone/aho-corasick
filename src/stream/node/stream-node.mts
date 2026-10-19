@@ -22,16 +22,24 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
           cb(new TypeError(`Expected chunk to be a string, but received ${typeof chunk}`));
           return;
         }
-        const pushT = (chunk: string) => { this.push(chunk); }
-        const pushK = (chunk: string) => { this.push(handleReplacer(chunk, replacer)); }
-        aho.processTextSync(session, chunk, collector, pushT, pushK, stop);
-        cb();
+        try {
+          const pushT = (chunk: string) => { this.push(chunk); }
+          const pushK = (chunk: string) => { this.push(handleReplacer(chunk, replacer)); }
+          aho.processTextSync(session, chunk, collector, pushT, pushK, stop);
+          cb();
+        } catch (e) {
+          cb(e instanceof Error ? e : new Error(String(e)));
+        }
       },
       flush(cb) {
-        const pushT = (chunk: string) => { this.push(chunk); }
-        const pushK = (chunk: string) => { this.push(handleReplacer(chunk, replacer)); }
-        aho.cleanupTextSync(session, collector, pushT, pushK, stop);
-        cb();
+        try {
+          const pushT = (chunk: string) => { this.push(chunk); }
+          const pushK = (chunk: string) => { this.push(handleReplacer(chunk, replacer)); }
+          aho.cleanupTextSync(session, collector, pushT, pushK, stop);
+          cb();
+        } catch (e) {
+          cb(e instanceof Error ? e : new Error(String(e)));
+        }
       }
     });
   }
@@ -48,16 +56,24 @@ export class AhoCorasick extends AbstractStreamGeneralAhoCorasick {
           cb(new TypeError(`Expected chunk to be a string, but received ${typeof chunk}`));
           return;
         }
-        const pushT = (chunk: string) => { this.push(chunk); }
-        const pushK = async (chunk: string) => { this.push(await handleAsyncableReplacer(chunk, replacer)); }
-        await aho.processTextAsync(session, chunk, collector, pushT, pushK, stop);
-        cb();
+        try {
+          const pushT = (chunk: string) => { this.push(chunk); }
+          const pushK = async (chunk: string) => { this.push(await handleAsyncableReplacer(chunk, replacer)); }
+          await aho.processTextAsync(session, chunk, collector, pushT, pushK, stop);
+          cb();
+        } catch (e) {
+          cb(e instanceof Error ? e : new Error(String(e)));
+        }
       },
       async flush(cb) {
-        const pushT = (chunk: string) => { this.push(chunk); }
-        const pushK = async (chunk: string) => { this.push(await handleAsyncableReplacer(chunk, replacer)); }
-        await aho.cleanupTextAsync(session, collector, pushT, pushK, stop);
-        cb();
+        try {
+          const pushT = (chunk: string) => { this.push(chunk); }
+          const pushK = async (chunk: string) => { this.push(await handleAsyncableReplacer(chunk, replacer)); }
+          await aho.cleanupTextAsync(session, collector, pushT, pushK, stop);
+          cb();
+        } catch (e) {
+          cb(e instanceof Error ? e : new Error(String(e)));
+        }
       }
     });
   }
