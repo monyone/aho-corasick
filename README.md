@@ -1,6 +1,6 @@
 # aho-corasick
 
-Simple Aho-Corasick algorhythm implementaiton for TypeScript.
+Simple Aho-Corasick algorithm implementaiton for TypeScript.
 
 ## Getting Started
 
