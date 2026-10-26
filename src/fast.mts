@@ -242,8 +242,14 @@ export class AhoCorasick {
 
   public matchInText(text: string): { begin: number, end: number, keyword: string }[] {
     const result: { begin: number, end: number, keyword: string }[] = [];
+    const root = 0;
+    for (const keyword of this.trie.query(root)) {
+      const begin = 0 - keyword.length;
+      const end = 0;
+      result.push({ begin, end, keyword });
+    }
 
-    let node = 0;
+    let node = root;
     for (let i = 0; i < text.length; i++) {
       const ch = text[i];
       node = this.trie.go(node, ch);
